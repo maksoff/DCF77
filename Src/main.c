@@ -52,14 +52,18 @@
 #include "usb_device.h"
 
 /* USER CODE BEGIN Includes */
-#include "microrl.h";
+#include "microrl.h"
+#include "usbd_cdc_if.h"
+#include "SEGGER_RTT.h"
+#include "fifo.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+microrl_t mcrl;
+microrl_t * p_mcrl = &mcrl;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,10 +72,161 @@ static void MX_GPIO_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+void process_cdc_input_data(uint8_t* Buf, uint32_t *Len);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+void process_cdc_input_data(uint8_t* Buf, uint32_t *Len)
+{
+//	uint8_t buff[2];
+//	buff[0] = Buf[0]/10+'0';
+//	buff[1] = Buf[0]%10+'0';
+//	CDC_Transmit_FS(buff,2);
+//	return;
+	for (uint32_t i = 0; i < (*Len); i++)
+		fifo_push((buff_t) Buf[i]);
+}
+
+void print (const char * str)
+{
+	uint16_t len = 0;
+	while (str[++len] != 0);
+	while (((USBD_CDC_HandleTypeDef*)(hUsbDeviceFS.pClassData))->TxState!=0);
+	CDC_Transmit_FS((uint8_t*)str, len);
+
+//	char test_str[256];
+//	len = 0;
+//	uint16_t i = 0;
+//	while (str[len] != 0)
+//	{
+//		if (str[len] >= ' ')
+//			test_str[i++] = str[len];
+//		len++;
+//	}
+//	test_str[i] = '\0';
+//	SEGGER_RTT_WriteString(0,test_str);
+}
+
+int execute (int argc, const char * const * argv)
+{
+	int i = 0;
+	if (strcmp (argv[i], "on") == 0)
+	{
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
+	}else if (strcmp (argv[i], "off") == 0)
+	{
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1);
+	}else if (strcmp (argv[i], "tgl") == 0)
+	{
+		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+	}
+	if (HAL_GPIO_ReadPin(LED_GPIO_Port,LED_Pin))
+		print("LED off");
+	else
+		print("LED on");
+	print ("\n\r");
+	// just iterate through argv word and compare it with your commands
+	/*while (i < argc) {
+		if (strcmp (argv[i], _CMD_HELP) == 0) {
+			print ("microrl v");
+			print (MICRORL_LIB_VER);
+			print (" library AVR DEMO v");
+			print (_AVR_DEMO_VER);
+			print("\n\r");
+			print_help ();        // print help
+		} else if (strcmp (argv[i], _CMD_CLEAR) == 0) {
+			print ("\033[2J");    // ESC seq for clear entire screen
+			print ("\033[H");     // ESC seq for move cursor at left-top corner
+		} else if ((strcmp (argv[i], _CMD_SET) == 0) ||
+							(strcmp (argv[i], _CMD_CLR) == 0)) {
+			if (++i < argc) {
+				int val = strcmp (argv[i-1], _CMD_CLR);
+				unsigned char * port = NULL;
+				int pin = 0;
+				if (strcmp (argv[i], _SCMD_PD) == 0) {
+					port = (unsigned char *)&PORTD;
+				} else if (strcmp (argv[i], _SCMD_PB) == 0) {
+					port = (unsigned char *)&PORTB;
+				} else {
+					print ("only '");
+					print (_SCMD_PB);
+					print ("' and '");
+					print (_SCMD_PD);
+					print ("' support\n\r");
+					return 1;
+				}
+				if (++i < argc) {
+					pin = atoi (argv[i]);
+					set_port_val (port, pin, val);
+					return 0;
+				} else {
+					print ("specify pin number, use Tab\n\r");
+					return 1;
+				}
+			} else {
+					print ("specify port, use Tab\n\r");
+				return 1;
+			}
+		} else {
+			print ("command: '");
+			print ((char*)argv[i]);
+			print ("' Not found.\n\r");
+		}
+		i++;
+	}*/
+	return 0;
+}
+
+#ifdef _USE_COMPLETE
+//*****************************************************************************
+// completion callback for microrl library
+char ** complet (int argc, const char * const * argv)
+{
+	//int j = 0;
+	return NULL;
+
+/*	compl_world [0] = NULL;
+
+	// if there is token in cmdline
+	if (argc == 1) {
+		// get last entered token
+		char * bit = (char*)argv [argc-1];
+		// iterate through our available token and match it
+		for (int i = 0; i < _NUM_OF_CMD; i++) {
+			// if token is matched (text is part of our token starting from 0 char)
+			if (strstr(keyworld [i], bit) == keyworld [i]) {
+				// add it to completion set
+				compl_world [j++] = keyworld [i];
+			}
+		}
+	}	else if ((argc > 1) && ((strcmp (argv[0], _CMD_SET)==0) ||
+													 (strcmp (argv[0], _CMD_CLR)==0))) { // if command needs subcommands
+		// iterate through subcommand
+		for (int i = 0; i < _NUM_OF_SETCLEAR_SCMD; i++) {
+			if (strstr (set_clear_key [i], argv [argc-1]) == set_clear_key [i]) {
+				compl_world [j++] = set_clear_key [i];
+			}
+		}
+	} else { // if there is no token in cmdline, just print all available token
+		for (; j < _NUM_OF_CMD; j++) {
+			compl_world[j] = keyworld [j];
+		}
+	}
+
+	// note! last ptr in array always must be NULL!!!
+	compl_world [j] = NULL;
+	// return set of variants
+	return compl_world;*/
+}
+#endif
+
+
+void sigint (void)
+{
+	print ("^C catched!\n\r");
+}
+
+
 
 /* USER CODE END 0 */
 
@@ -99,6 +254,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
+  CDC_set_receive_callback(process_cdc_input_data);
 
   /* USER CODE END SysInit */
 
@@ -106,11 +262,21 @@ int main(void)
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
+  microrl_init(p_mcrl, print);
+  // set callback for execute
+  microrl_set_execute_callback (p_mcrl, execute);
 
+#ifdef _USE_COMPLETE
+  // set callback for completion
+  microrl_set_complete_callback (p_mcrl, complet);
+#endif
+  // set callback for Ctrl+C
+  microrl_set_sigint_callback (p_mcrl, sigint);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  SEGGER_RTT_Init();
   for (int i = 51; i > 0 ; i--)
   {
 	  HAL_Delay(100);
@@ -118,7 +284,11 @@ int main(void)
   }
   while (1)
   {
-
+	  while (!fifo_is_empty())
+		  microrl_insert_char(p_mcrl, (int) fifo_pop());
+//	  HAL_Delay(1000);
+//	  print("This is test");
+//	  print(ENDL);
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */

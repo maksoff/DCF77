@@ -135,6 +135,7 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
 /* USER CODE BEGIN EXPORTED_FUNCTIONS */
 
+void CDC_set_receive_callback(void (*p_process_received_data)(uint8_t* pbuf, uint32_t *Len));
 /* USER CODE END EXPORTED_FUNCTIONS */
 
 /**

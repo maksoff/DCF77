@@ -51,7 +51,7 @@
 #include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
-
+#include "SEGGER_RTT.h"
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -127,7 +127,7 @@ uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
 uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
 /* USER CODE BEGIN PRIVATE_VARIABLES */
-
+void (*process_received_data)(uint8_t* pbuf, uint32_t *Len);
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -291,22 +291,8 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
-	if (Buf[0] == '0')
-	{
-		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1);
-		uint8_t msg[] = "LED off\r\n";
-		CDC_Transmit_FS(msg, sizeof(msg)-1);
-	} else if (Buf[0] == '1')
-	{
-		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
-		uint8_t msg[] = "LED on\r\n";
-		CDC_Transmit_FS(msg, sizeof(msg)-1);
-	} else if (Buf[0] == '2')
-	{
-		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-		uint8_t msg[] = "LED tgl\r\n";
-		CDC_Transmit_FS(msg, sizeof(msg)-1);
-	}
+  (*process_received_data) (Buf, Len);
+
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
   return (USBD_OK);
@@ -340,6 +326,10 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
+void CDC_set_receive_callback(void (*p_process_received_data)(uint8_t* pbuf, uint32_t *Len))
+{
+	process_received_data = p_process_received_data;
+}
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
 /**

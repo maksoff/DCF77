@@ -571,6 +571,7 @@ void microrl_insert_char (microrl_t * pThis, int ch)
 #endif
 		switch (ch) {
 			//-----------------------------------------------------
+
 #ifdef _ENDL_CR
 			case KEY_CR:
 				new_line_handler(pThis);
@@ -600,6 +601,7 @@ void microrl_insert_char (microrl_t * pThis, int ch)
 				new_line_handler(pThis);
 			break;
 #endif
+
 			//-----------------------------------------------------
 #ifdef _USE_COMPLETE
 			case KEY_HT:

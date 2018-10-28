@@ -27,7 +27,7 @@ Token is word separate by white space, for example 3 token line:
 Define you prompt string here. You can use colors escape code, for highlight you prompt,
 for example this prompt will green color (if you terminal supports color)*/
 //#define _PROMPT_DEFAULT "\033[32mIRin >\033[0m "	// green color
-#define _PROMPT_DEFAULT "\033[32mIRin >\033[0m "	// green color
+#define _PROMPT_DEFAULT "\033[32mDCF77>\033[0m "	// green color
 //#define _PROMPT_DEFAULT "IRin > "
 
 /*
@@ -80,19 +80,21 @@ already initialize and ready to print message */
 
 /*
 New line symbol */
-#define _ENDL_LF
+#define _ENDL_CR
 
 #if defined(_ENDL_CR)
-#define ENDL "\r"
+#define ENTER "\r"
 #elif defined(_ENDL_CRLF)
-#define ENDL "\r\n"
+#define ENTER "\r\n"
 #elif defined(_ENDL_LF)
-#define ENDL "\n"
+#define ENTER "\n"
 #elif defined(_ENDL_LFCR)
-#define ENDL "\n\r"
+#define ENTER "\n\r"
 #else
 #error "You must define new line symbol."
 #endif
+
+#define ENDL "\r\n"
 
 /********** END CONFIG SECTION ************/
 
