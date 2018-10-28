@@ -53,6 +53,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "microrl.h"
+#include "microrl_cmd.h"
 #include "usbd_cdc_if.h"
 #include "SEGGER_RTT.h"
 #include "fifo.h"
@@ -64,6 +65,10 @@
 /* Private variables ---------------------------------------------------------*/
 microrl_t mcrl;
 microrl_t * p_mcrl = &mcrl;
+//RTC_HandleTypeDef rtc;
+//RTC_HandleTypeDef * p_rtc = &rtc;
+//RTC_TimeTypeDef time;
+//RTC_TimeTypeDef *p_time = &time;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,73 +112,92 @@ void print (const char * str)
 //	SEGGER_RTT_WriteString(0,test_str);
 }
 
+void print_help(void)
+{
+	print ("Use TAB key for completion"); print (ENDL);
+	print ("Command:"); print (ENDL);
+	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_HELP);
+					print(COLOR_NC); 			print ("\t - this message"); 		print (ENDL);
+	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_CLEAR);
+					print(COLOR_NC); 			print ("\t - clear screen");   		print (ENDL);
+	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_LED);
+					print(COLOR_NC); 			print ("\t - switch led"); 			print (ENDL);
+	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_OFF);
+					print(COLOR_NC); 			print ("\t - turn off"); 			print (ENDL);
+	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_ON);
+					print(COLOR_NC); 			print ("\t - turn on"); 			print (ENDL);
+	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print ("[]");
+					print(COLOR_NC); 			print ("\t - empty to toggle"); 	print (ENDL);
+}
+
+void print_time(void)
+{
+//	char str[9];
+//	HAL_RTC_GetTime(p_rtc, p_time, RTC_FORMAT_BCD);
+//	str[0] = (((p_time->Hours)&0xF0)>>4) + '0';
+//	str[1] = (((p_time->Hours)&0x0F)>>0) + '0';
+//	str[2] = ':';
+//	str[3] = (((p_time->Minutes)&0xF0)>>4) + '0';
+//	str[4] = (((p_time->Minutes)&0x0F)>>0) + '0';
+//	str[5] = ':';
+//	str[6] = (((p_time->Seconds)&0xF0)>>4) + '0';
+//	str[7] = (((p_time->Seconds)&0x0F)>>0) + '0';
+//	str[8] = '\0';
+//	print(str);
+}
+
 int execute (int argc, const char * const * argv)
 {
 	int i = 0;
-	if (strcmp (argv[i], "on") == 0)
-	{
-		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
-	}else if (strcmp (argv[i], "off") == 0)
-	{
-		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1);
-	}else if (strcmp (argv[i], "tgl") == 0)
-	{
-		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-	}
-	if (HAL_GPIO_ReadPin(LED_GPIO_Port,LED_Pin))
-		print("LED off");
-	else
-		print("LED on");
-	print ("\n\r");
 	// just iterate through argv word and compare it with your commands
-	/*while (i < argc) {
-		if (strcmp (argv[i], _CMD_HELP) == 0) {
-			print ("microrl v");
-			print (MICRORL_LIB_VER);
-			print (" library AVR DEMO v");
-			print (_AVR_DEMO_VER);
-			print("\n\r");
+	while (i < argc) {
+		if ((strcmp (argv[i], _CMD_HELP) == 0)||
+			(strcmp (argv[i], _CMD_H) 	 == 0)||
+			(strcmp (argv[i], _CMD_Q) 	 == 0)) {
+			print (_VER);
+			print(ENDL);
 			print_help ();        // print help
 		} else if (strcmp (argv[i], _CMD_CLEAR) == 0) {
 			print ("\033[2J");    // ESC seq for clear entire screen
 			print ("\033[H");     // ESC seq for move cursor at left-top corner
-		} else if ((strcmp (argv[i], _CMD_SET) == 0) ||
-							(strcmp (argv[i], _CMD_CLR) == 0)) {
+		} else if ((strcmp (argv[i], _CMD_LED) == 0)) {
 			if (++i < argc) {
-				int val = strcmp (argv[i-1], _CMD_CLR);
-				unsigned char * port = NULL;
-				int pin = 0;
-				if (strcmp (argv[i], _SCMD_PD) == 0) {
-					port = (unsigned char *)&PORTD;
-				} else if (strcmp (argv[i], _SCMD_PB) == 0) {
-					port = (unsigned char *)&PORTB;
+				if (strcmp (argv[i], _SCMD_ON) == 0) {
+					HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
+				} else if (strcmp (argv[i], _SCMD_OFF) == 0) {
+					HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1);
 				} else {
 					print ("only '");
-					print (_SCMD_PB);
+					print (_SCMD_ON);
 					print ("' and '");
-					print (_SCMD_PD);
-					print ("' support\n\r");
-					return 1;
-				}
-				if (++i < argc) {
-					pin = atoi (argv[i]);
-					set_port_val (port, pin, val);
-					return 0;
-				} else {
-					print ("specify pin number, use Tab\n\r");
+					print (_SCMD_ON);
+					print ("' supported, leave empty to toggle");
+					print (ENDL);
 					return 1;
 				}
 			} else {
-					print ("specify port, use Tab\n\r");
-				return 1;
+				HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 			}
+			print (COLOR_LIGHT_BLUE);
+			if (HAL_GPIO_ReadPin(LED_GPIO_Port,LED_Pin))
+				print("LED off");
+			else
+				print("LED on");
+			print(COLOR_NC);
+			print (ENDL);
+			return 0;
+		} else if (strcmp (argv[i], _CMD_TIME) == 0) {
+			print_time();
 		} else {
+			print (COLOR_RED);
 			print ("command: '");
 			print ((char*)argv[i]);
-			print ("' Not found.\n\r");
+			print ("' not found");
+			print (COLOR_NC);
+			print(ENDL);
 		}
 		i++;
-	}*/
+	}
 	return 0;
 }
 
@@ -182,10 +206,9 @@ int execute (int argc, const char * const * argv)
 // completion callback for microrl library
 char ** complet (int argc, const char * const * argv)
 {
-	//int j = 0;
-	return NULL;
+	int j = 0;
 
-/*	compl_world [0] = NULL;
+	compl_word [0] = NULL;
 
 	// if there is token in cmdline
 	if (argc == 1) {
@@ -194,36 +217,36 @@ char ** complet (int argc, const char * const * argv)
 		// iterate through our available token and match it
 		for (int i = 0; i < _NUM_OF_CMD; i++) {
 			// if token is matched (text is part of our token starting from 0 char)
-			if (strstr(keyworld [i], bit) == keyworld [i]) {
+			if (strstr(keyword [i], bit) == keyword [i]) {
 				// add it to completion set
-				compl_world [j++] = keyworld [i];
+				compl_word [j++] = keyword [i];
 			}
 		}
-	}	else if ((argc > 1) && ((strcmp (argv[0], _CMD_SET)==0) ||
-													 (strcmp (argv[0], _CMD_CLR)==0))) { // if command needs subcommands
+	}	else if ((argc > 1) && ((strcmp (argv[0], _CMD_LED)==0))) { // if command needs subcommands
 		// iterate through subcommand
-		for (int i = 0; i < _NUM_OF_SETCLEAR_SCMD; i++) {
-			if (strstr (set_clear_key [i], argv [argc-1]) == set_clear_key [i]) {
-				compl_world [j++] = set_clear_key [i];
+		for (int i = 0; i < _NUM_OF_LED_SCMD; i++) {
+			if (strstr (on_off_key [i], argv [argc-1]) == on_off_key [i]) {
+				compl_word [j++] = on_off_key [i];
 			}
 		}
 	} else { // if there is no token in cmdline, just print all available token
 		for (; j < _NUM_OF_CMD; j++) {
-			compl_world[j] = keyworld [j];
+			compl_word[j] = keyword [j];
 		}
 	}
 
 	// note! last ptr in array always must be NULL!!!
-	compl_world [j] = NULL;
+	compl_word [j] = NULL;
 	// return set of variants
-	return compl_world;*/
+	return compl_word;
 }
 #endif
 
 
 void sigint (void)
 {
-	print ("^C catched!\n\r");
+	print ("^C catched!");
+	print (ENDL);
 }
 
 
@@ -277,6 +300,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   SEGGER_RTT_Init();
+//  HAL_RTC_Init(p_rtc);
   for (int i = 51; i > 0 ; i--)
   {
 	  HAL_Delay(100);
