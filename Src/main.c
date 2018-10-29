@@ -60,27 +60,37 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+RTC_HandleTypeDef hrtc;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 microrl_t mcrl;
 microrl_t * p_mcrl = &mcrl;
-//RTC_HandleTypeDef rtc;
-//RTC_HandleTypeDef * p_rtc = &rtc;
-//RTC_TimeTypeDef time;
-//RTC_TimeTypeDef *p_time = &time;
+
+RTC_TimeTypeDef time;
+RTC_TimeTypeDef *p_time = &time;
+
+bool CDC_is_ready = false;
+bool tick = false;
+bool show_time = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_RTC_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 void process_cdc_input_data(uint8_t* Buf, uint32_t *Len);
+void print (const char * str);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc)
+{
+	tick = true;
+}
 void process_cdc_input_data(uint8_t* Buf, uint32_t *Len)
 {
 //	uint8_t buff[2];
@@ -94,6 +104,8 @@ void process_cdc_input_data(uint8_t* Buf, uint32_t *Len)
 
 void print (const char * str)
 {
+	if (!CDC_is_ready)
+		return;
 	uint16_t len = 0;
 	while (str[++len] != 0);
 	while (((USBD_CDC_HandleTypeDef*)(hUsbDeviceFS.pClassData))->TxState!=0);
@@ -130,20 +142,29 @@ void print_help(void)
 					print(COLOR_NC); 			print ("\t - empty to toggle"); 	print (ENDL);
 }
 
+void time_to_string(char * str)
+{
+	HAL_RTC_GetTime(&hrtc, p_time, RTC_FORMAT_BCD);
+	str[0] = (((p_time->Hours)&0xF0)>>4) + '0';
+	str[1] = (((p_time->Hours)&0x0F)>>0) + '0';
+	str[2] = ':';
+	str[3] = (((p_time->Minutes)&0xF0)>>4) + '0';
+	str[4] = (((p_time->Minutes)&0x0F)>>0) + '0';
+	str[5] = ':';
+	str[6] = (((p_time->Seconds)&0xF0)>>4) + '0';
+	str[7] = (((p_time->Seconds)&0x0F)>>0) + '0';
+	str[8] = '\0';
+
+}
+
 void print_time(void)
 {
-//	char str[9];
-//	HAL_RTC_GetTime(p_rtc, p_time, RTC_FORMAT_BCD);
-//	str[0] = (((p_time->Hours)&0xF0)>>4) + '0';
-//	str[1] = (((p_time->Hours)&0x0F)>>0) + '0';
-//	str[2] = ':';
-//	str[3] = (((p_time->Minutes)&0xF0)>>4) + '0';
-//	str[4] = (((p_time->Minutes)&0x0F)>>0) + '0';
-//	str[5] = ':';
-//	str[6] = (((p_time->Seconds)&0xF0)>>4) + '0';
-//	str[7] = (((p_time->Seconds)&0x0F)>>0) + '0';
-//	str[8] = '\0';
-//	print(str);
+	char str[9];
+	time_to_string (str);
+	print(COLOR_LIGHT_BLUE);
+	print(str);
+	print(COLOR_NC);
+	print(ENDL);
 }
 
 int execute (int argc, const char * const * argv)
@@ -157,7 +178,9 @@ int execute (int argc, const char * const * argv)
 			print (_VER);
 			print(ENDL);
 			print_help ();        // print help
-		} else if (strcmp (argv[i], _CMD_CLEAR) == 0) {
+		} else if ((strcmp (argv[i], _CMD_CLEAR) == 0)||
+				   (strcmp (argv[i], "clrscr")   == 0)||
+				   (strcmp (argv[i], "clr")      == 0)) {
 			print ("\033[2J");    // ESC seq for clear entire screen
 			print ("\033[H");     // ESC seq for move cursor at left-top corner
 		} else if ((strcmp (argv[i], _CMD_LED) == 0)) {
@@ -187,7 +210,13 @@ int execute (int argc, const char * const * argv)
 			print (ENDL);
 			return 0;
 		} else if (strcmp (argv[i], _CMD_TIME) == 0) {
-			print_time();
+			if (++i < argc)
+			{
+				print("ctrl+C to stop");
+				print(ENDL);
+				show_time = true;
+			} else
+				print_time();
 		} else {
 			print (COLOR_RED);
 			print ("command: '");
@@ -245,6 +274,8 @@ char ** complet (int argc, const char * const * argv)
 
 void sigint (void)
 {
+	show_time = false;
+	print (ENDL);
 	print ("^C catched!");
 	print (ENDL);
 }
@@ -283,6 +314,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_RTC_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
   microrl_init(p_mcrl, print);
@@ -300,7 +332,9 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   SEGGER_RTT_Init();
-//  HAL_RTC_Init(p_rtc);
+  HAL_Delay(1);
+  CDC_is_ready = true;
+  HAL_RTCEx_SetSecond_IT (&hrtc);
   for (int i = 51; i > 0 ; i--)
   {
 	  HAL_Delay(100);
@@ -310,6 +344,20 @@ int main(void)
   {
 	  while (!fifo_is_empty())
 		  microrl_insert_char(p_mcrl, (int) fifo_pop());
+	  if (tick)
+	  {
+		  if (show_time)
+		  {
+			  print("\r ");
+			  char str[9];
+			  time_to_string (str);
+			  print(COLOR_PURPLE);
+			  print(str);
+			  print(COLOR_NC);
+			  print("\r");
+		  }
+		  tick = false;
+	  }
 //	  HAL_Delay(1000);
 //	  print("This is test");
 //	  print(ENDL);
@@ -335,9 +383,10 @@ void SystemClock_Config(void)
 
     /**Initializes the CPU, AHB and APB busses clocks 
     */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_LSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
@@ -361,7 +410,8 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_USB;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV1_5;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
@@ -378,6 +428,54 @@ void SystemClock_Config(void)
 
   /* SysTick_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+}
+
+/* RTC init function */
+static void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+
+  /* USER CODE END RTC_Init 0 */
+
+  RTC_TimeTypeDef sTime;
+  RTC_DateTypeDef DateToUpdate;
+
+  /* USER CODE BEGIN RTC_Init 1 */
+
+  /* USER CODE END RTC_Init 1 */
+
+    /**Initialize RTC Only 
+    */
+  hrtc.Instance = RTC;
+  hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
+  hrtc.Init.OutPut = RTC_OUTPUTSOURCE_NONE;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+    /**Initialize RTC and set the Time and Date 
+    */
+  sTime.Hours = 0x18;
+  sTime.Minutes = 0x3;
+  sTime.Seconds = 0x0;
+
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
+  DateToUpdate.Month = RTC_MONTH_OCTOBER;
+  DateToUpdate.Date = 0x29;
+  DateToUpdate.Year = 0x0;
+
+  if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
 }
 
 /** Configure pins as 
