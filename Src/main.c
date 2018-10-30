@@ -135,11 +135,13 @@ void print_help(void)
 	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_LED);
 					print(COLOR_NC); 			print ("\t - switch led"); 			print (ENDL);
 	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_OFF);
-					print(COLOR_NC); 			print ("\t - turn off"); 			print (ENDL);
+					print(COLOR_NC); 			print ("\t ^ turn off"); 			print (ENDL);
 	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_ON);
-					print(COLOR_NC); 			print ("\t - turn on"); 			print (ENDL);
+					print(COLOR_NC); 			print ("\t ^ turn on"); 			print (ENDL);
 	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print ("[]");
-					print(COLOR_NC); 			print ("\t - empty to toggle"); 	print (ENDL);
+					print(COLOR_NC); 			print ("\t ^ empty to toggle"); 	print (ENDL);
+	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_TIME);
+					print(COLOR_NC); 			print ("\t - show time"); 			print (ENDL);
 }
 
 void time_to_string(char * str)
@@ -212,7 +214,7 @@ int execute (int argc, const char * const * argv)
 		} else if (strcmp (argv[i], _CMD_TIME) == 0) {
 			if (++i < argc)
 			{
-				print("ctrl+C to stop");
+				print("Ctrl+C to stop");
 				print(ENDL);
 				show_time = true;
 			} else
