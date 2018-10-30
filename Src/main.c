@@ -124,24 +124,45 @@ void print (const char * str)
 //	SEGGER_RTT_WriteString(0,test_str);
 }
 
-void print_help(void)
+print_help_recursive(const char * parent, uint32_t level)
+{
+	for (uint32_t i = 0; i < microrl_actions_length; i++)
+	{
+/*
+ * print array[i]
+ * search recursive (array[i] level)
+ * if "" - show [..]
+ */
+	}
+}
+
+int print_help(int argc, const char * const * argv)
 {
 	print ("Use TAB key for completion"); print (ENDL);
 	print ("Command:"); print (ENDL);
-	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_HELP);
+	print_help_recursive("", 0);
+	/*print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_HELP);
 					print(COLOR_NC); 			print ("\t - this message"); 		print (ENDL);
 	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_CLEAR);
 					print(COLOR_NC); 			print ("\t - clear screen");   		print (ENDL);
 	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_LED);
 					print(COLOR_NC); 			print ("\t - switch led"); 			print (ENDL);
-	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_OFF);
+	print ("\t "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_OFF);
 					print(COLOR_NC); 			print ("\t ^ turn off"); 			print (ENDL);
-	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_ON);
+	print ("\t "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_ON);
 					print(COLOR_NC); 			print ("\t ^ turn on"); 			print (ENDL);
-	print ("\t  "); print(COLOR_LIGHT_GREEN); 	print ("[]");
+	print ("\t "); print(COLOR_LIGHT_GREEN); 	print ("[]");
 					print(COLOR_NC); 			print ("\t ^ empty to toggle"); 	print (ENDL);
 	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_TIME);
-					print(COLOR_NC); 			print ("\t - show time"); 			print (ENDL);
+					print(COLOR_NC); 			print ("\t - show time"); 			print (ENDL);*/
+	return 0;
+}
+
+int clear_screen(int argc, const char * const * argv)
+{
+	print ("\033[2J");    // ESC seq for clear entire screen
+	print ("\033[H");     // ESC seq for move cursor at left-top corner
+	return 0;
 }
 
 void time_to_string(char * str)
@@ -159,7 +180,7 @@ void time_to_string(char * str)
 
 }
 
-void print_time(void)
+int print_time (int argc, const char * const * argv)
 {
 	char str[9];
 	time_to_string (str);
@@ -167,24 +188,24 @@ void print_time(void)
 	print(str);
 	print(COLOR_NC);
 	print(ENDL);
+	return 0;
 }
 
 int execute (int argc, const char * const * argv)
 {
 	int i = 0;
-	// just iterate through argv word and compare it with your commands
+	/*// just iterate through argv word and compare it with your commands
 	while (i < argc) {
 		if ((strcmp (argv[i], _CMD_HELP) == 0)||
 			(strcmp (argv[i], _CMD_H) 	 == 0)||
 			(strcmp (argv[i], _CMD_Q) 	 == 0)) {
 			print (_VER);
 			print(ENDL);
-			print_help ();        // print help
+			print_help (argc, argv);        // print help
 		} else if ((strcmp (argv[i], _CMD_CLEAR) == 0)||
 				   (strcmp (argv[i], "clrscr")   == 0)||
 				   (strcmp (argv[i], "clr")      == 0)) {
-			print ("\033[2J");    // ESC seq for clear entire screen
-			print ("\033[H");     // ESC seq for move cursor at left-top corner
+			clear_screen (argc, argv);
 		} else if ((strcmp (argv[i], _CMD_LED) == 0)) {
 			if (++i < argc) {
 				if (strcmp (argv[i], _SCMD_ON) == 0) {
@@ -228,7 +249,7 @@ int execute (int argc, const char * const * argv)
 			print(ENDL);
 		}
 		i++;
-	}
+	}*/
 	return 0;
 }
 
@@ -241,6 +262,7 @@ char ** complet (int argc, const char * const * argv)
 
 	compl_word [0] = NULL;
 
+/*
 	// if there is token in cmdline
 	if (argc == 1) {
 		// get last entered token
@@ -269,6 +291,7 @@ char ** complet (int argc, const char * const * argv)
 	// note! last ptr in array always must be NULL!!!
 	compl_word [j] = NULL;
 	// return set of variants
+*/
 	return compl_word;
 }
 #endif
@@ -316,8 +339,8 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_RTC_Init();
   MX_USB_DEVICE_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   microrl_init(p_mcrl, print);
   // set callback for execute
@@ -334,6 +357,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   SEGGER_RTT_Init();
+  HAL_GPIO_WritePin(USB_UP_GPIO_Port, USB_UP_Pin, 0);
   HAL_Delay(1);
   CDC_is_ready = true;
   HAL_RTCEx_SetSecond_IT (&hrtc);
@@ -500,12 +524,22 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(USB_UP_GPIO_Port, USB_UP_Pin, GPIO_PIN_SET);
+
   /*Configure GPIO pin : LED_Pin */
   GPIO_InitStruct.Pin = LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : USB_UP_Pin */
+  GPIO_InitStruct.Pin = USB_UP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(USB_UP_GPIO_Port, &GPIO_InitStruct);
 
 }
 

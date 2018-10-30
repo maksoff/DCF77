@@ -10,7 +10,50 @@
 
 #define _VER "DCF77 ver 1.0"
 
-// definition commands word
+int print_help 		(int argc, const char * const * argv);
+int clear_screen 	(int argc, const char * const * argv);
+int led_on 			(int argc, const char * const * argv);
+int led_off 		(int argc, const char * const * argv);
+int led_toggle 		(int argc, const char * const * argv);
+int time_show 		(int argc, const char * const * argv);
+int time_show_simple(int argc, const char * const * argv);
+int time_set 		(int argc, const char * const * argv);
+int print_time 		(int argc, const char * const * argv);
+
+
+#define MICRORL_CMD_LENGTH (10)
+#define MICRORL_HELP_MSG_LENGTH (44)
+
+typedef struct{
+	char cmd	  [MICRORL_CMD_LENGTH];
+	char friend	  [MICRORL_CMD_LENGTH];
+	char parent	  [MICRORL_CMD_LENGTH];
+	char help_msg [MICRORL_HELP_MSG_LENGTH];
+	int (*func)   (int argc, const char * const * argv );
+} microrl_action_t;
+
+const microrl_action_t microrl_actions [] =
+{
+		{"help", 	"", 		"", 	"this message", 	print_help},
+		{"h", 		"help",		"", 	"", 				print_help},
+		{"?", 		"help", 	"", 	"", 				print_help},
+		{"clear", 	"",			"", 	"clear screen", 	clear_screen},
+		{"h", 		"clear",	"", 	"clear screen", 	clear_screen},
+		{"?", 		"clear",	"", 	"clear screen", 	clear_screen},
+		{"led",		"",			"",		"switch led",		NULL},
+		{ "on",		"",			"led",	"turn on",			led_on},
+		{ "off",	"",			"led",	"turn off",			led_off},
+		{ "",		"",			"led",	"empty - toggle",	led_toggle},
+		{"time",	"",			"",		"print time",		NULL},
+		{ "show", 	"",			"time",	"auto update",		time_show},
+		{  "simple","",			"show",	"auto for logging",	time_show_simple},
+		{ "set",	"",			"time", "time set hh:mm:ss",time_set},
+		{ "",		"",			"time",	"once",				print_time}
+};
+
+#define microrl_actions_length (sizeof(microrl_actions)/sizeof(microrl_action_t))
+
+/*// definition commands word
 #define _CMD_HELP   "help"
 #define _CMD_H		"h"
 #define _CMD_Q		"?"
@@ -25,12 +68,12 @@
 #define _NUM_OF_LED_SCMD 2
 
 //available  commands
-char * keyword [] = {_CMD_HELP, _CMD_CLEAR, _CMD_LED, _CMD_TIME};
+char * keyword [] = {_CMD_HELP, _CMD_H, _CMD_CLEAR, _CMD_LED, _CMD_TIME};
 // 'set/clear' command argements
-char * on_off_key [] = {_SCMD_ON, _SCMD_OFF};
+char * on_off_key [] = {_SCMD_ON, _SCMD_OFF};*/
 
 // array for comletion
-char * compl_word [_NUM_OF_CMD + 1];
+char * compl_word [microrl_actions_length + 1];
 
 #define COLOR_NC				"\e[0m" 	// default
 #define COLOR_WHITE				"\e[1;37m"
