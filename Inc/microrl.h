@@ -69,7 +69,7 @@ typedef struct {
 	char escape_seq;
 	char escape;
 #endif
-#if (defined(_ENDL_CRLF) || defined(_ENDL_LFCR))
+#if (defined(_ENTER_CRLF) || defined(_ENTER_LFCR) || defined (_ENTER_AUTO))
 	char tmpch;
 #endif
 #ifdef _USE_HISTORY

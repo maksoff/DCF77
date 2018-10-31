@@ -79,22 +79,33 @@ already initialize and ready to print message */
 #undef _ENABLE_INIT_PROMPT
 
 /*
-New line symbol */
-#define _ENDL_CR
+New line symbol (ENTER) */
+#define _ENTER_AUTO
 
-#if defined(_ENDL_CR)
-#define ENTER "\r"
-#elif defined(_ENDL_CRLF)
-#define ENTER "\r\n"
-#elif defined(_ENDL_LF)
-#define ENTER "\n"
-#elif defined(_ENDL_LFCR)
-#define ENTER "\n\r"
+#if defined (_ENTER_AUTO)
+#elif defined (_ENTER_CR)
+#elif defined (_ENTER_LF)
+#elif defined (_ENTER_CRLF)
+#elif defined (_ENTER_LFCR)
 #else
 #error "You must define new line symbol."
 #endif
 
+/*
+End line symbol */
+#define _ENDL_CRLF
+
+#if defined(_ENDL_CR)
+#define ENDL "\r"
+#elif defined(_ENDL_CRLF)
 #define ENDL "\r\n"
+#elif defined(_ENDL_LF)
+#define ENDL "\n"
+#elif defined(_ENDL_LFCR)
+#define ENDL "\n\r"
+#else
+#error "You must define end line symbol."
+#endif
 
 /********** END CONFIG SECTION ************/
 

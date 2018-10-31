@@ -123,17 +123,61 @@ void print (const char * str)
 //	test_str[i] = '\0';
 //	SEGGER_RTT_WriteString(0,test_str);
 }
-
-print_help_recursive(const char * parent, uint32_t level)
+int print_color(const char * str, microrl_color_e color)
 {
-	for (uint32_t i = 0; i < microrl_actions_length; i++)
+	//print(color);
+	print(str);
+	//print(C_NC);
+	return 0;
+}
+
+int print_help_line(const char * cmd, int level)
+{
+	/* if help message != 0
+	 * print command
+	 */
+	microrl_color_e level_color;
+	switch (level)
 	{
+	case 0:
+		level_color = C_GREEN;
+		break;
+	case 1:
+		level_color = C_L_GREEN;
+		break;
+	default:
+		level_color = C_L_PURPLE;
+		break;
+	}
+	for (int i = 0; i < level; i++)
+		print(" ");
+	print_color(cmd, level_color);
+	print(ENDL);
+
+}
+
+
+int print_help_recursive(const char * parent, int level)
+{
+	for (int i = 0; i < microrl_actions_length; i++)
+	{
+		if (strcmp(microrl_actions[i].parent, parent) == 0 && microrl_actions[i].friend[0] == '\0')
+		{
+
+			print_help_line(microrl_actions[i].cmd, level);
+			if (microrl_actions[i].cmd[0] != '\0')
+			{
+				print_help_recursive(microrl_actions[i].cmd, level + 1);
+			}
+
+		}
 /*
  * print array[i]
  * search recursive (array[i] level)
  * if "" - show [..]
  */
 	}
+	return 0;
 }
 
 int print_help(int argc, const char * const * argv)
@@ -190,10 +234,35 @@ int print_time (int argc, const char * const * argv)
 	print(ENDL);
 	return 0;
 }
+int led_on 			(int argc, const char * const * argv)
+{
+
+}
+int led_off 		(int argc, const char * const * argv)
+{
+
+}
+int led_toggle 		(int argc, const char * const * argv)
+{
+
+}
+int time_show 		(int argc, const char * const * argv)
+{
+
+}
+int time_show_simple(int argc, const char * const * argv)
+{
+
+}
+int time_set 		(int argc, const char * const * argv)
+{
+
+}
 
 int execute (int argc, const char * const * argv)
 {
 	int i = 0;
+	print_help(argc, argv);
 	/*// just iterate through argv word and compare it with your commands
 	while (i < argc) {
 		if ((strcmp (argv[i], _CMD_HELP) == 0)||

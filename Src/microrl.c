@@ -572,34 +572,48 @@ void microrl_insert_char (microrl_t * pThis, int ch)
 		switch (ch) {
 			//-----------------------------------------------------
 
-#ifdef _ENDL_CR
+#ifdef _ENTER_CR
 			case KEY_CR:
 				new_line_handler(pThis);
 			break;
 			case KEY_LF:
 			break;
-#elif defined(_ENDL_CRLF)
+#elif defined(_ENTER_CRLF)
 			case KEY_CR:
 				pThis->tmpch = KEY_CR;
 			break;
 			case KEY_LF:
 			if (pThis->tmpch == KEY_CR)
+			{
+				pThis->tmpch = '\0';
 				new_line_handler(pThis);
+			}
 			break;
-#elif defined(_ENDL_LFCR)
+#elif defined(_ENTER_LFCR)
 			case KEY_LF:
 				pThis->tmpch = KEY_LF;
 			break;
 			case KEY_CR:
 			if (pThis->tmpch == KEY_LF)
+			{
+				pThis->tmpch = '\0';
 				new_line_handler(pThis);
+			}
 			break;
-#else
+#elif defined (_ENTER_LF)
 			case KEY_CR:
 			break;
 			case KEY_LF:
 				new_line_handler(pThis);
 			break;
+#elif defined (_ENTER_AUTO)
+			case KEY_CR:
+			case KEY_LF:
+				if (pThis->tmpch == (ch == KEY_CR?KEY_LF:KEY_CR))
+					break;
+				pThis->tmpch = ch;
+				new_line_handler(pThis);
+				break;
 #endif
 
 			//-----------------------------------------------------
