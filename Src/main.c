@@ -123,37 +123,72 @@ void print (const char * str)
 //	test_str[i] = '\0';
 //	SEGGER_RTT_WriteString(0,test_str);
 }
-int print_color(const char * str, microrl_color_e color)
+
+int find_color_by_name(microrl_color_e color)
 {
-	//print(color);
-	print(str);
-	//print(C_NC);
+	for (int i = 0; i < microrl_color_lookup_length; i++)
+	{
+		if (microrl_color_lookup[i].name == color)
+		{
+			return i;
+		}
+	}
 	return 0;
 }
 
-int print_help_line(const char * cmd, int level)
+int print_color(const char * str, microrl_color_e color)
 {
-	/* if help message != 0
-	 * print command
-	 */
-	microrl_color_e level_color;
-	switch (level)
-	{
+	print(microrl_color_lookup[find_color_by_name(color)].code);
+	print(str);
+	print(COLOR_NC);
+	return 0;
+}
+
+int str_length(const char * str)
+{
+	int i = 0;
+	while (str[i])
+		i++;
+	return i;
+}
+
+int print_help_line(int n, int level)
+{
+	for (int i = -4; i < level; i++)
+		print(" ");
+	print_color(microrl_actions[n].cmd, microrl_help_color[level]);
+	for (int i = 0; i < MICRORL_CMD_LENGTH + 2 - level - str_length(microrl_actions[n].cmd); i++)
+		print (" ");
+	switch (level){
 	case 0:
-		level_color = C_GREEN;
+		print ("-");
 		break;
 	case 1:
-		level_color = C_L_GREEN;
+		print ("^");
 		break;
 	default:
-		level_color = C_L_PURPLE;
+		print ("#");
 		break;
 	}
-	for (int i = 0; i < level; i++)
-		print(" ");
-	print_color(cmd, level_color);
+	print (" ");
+	print (microrl_actions[n].help_msg);
+	bool has_friends = false;
+	for (int i = 0; i < microrl_actions_length; i++)
+	{
+		if (strcmp(microrl_actions[i].friend, microrl_actions[n].cmd) == 0)
+		{
+			if (!has_friends)
+				print_color(" aka [", C_PURPLE);
+			else
+				print_color("/", C_PURPLE);
+			print_color (microrl_actions[i].cmd, C_L_PURPLE);
+			has_friends = true;
+		}
+	}
+	if (has_friends)
+		print_color("]", C_PURPLE);
 	print(ENDL);
-
+	return 0;
 }
 
 
@@ -161,10 +196,12 @@ int print_help_recursive(const char * parent, int level)
 {
 	for (int i = 0; i < microrl_actions_length; i++)
 	{
-		if (strcmp(microrl_actions[i].parent, parent) == 0 && microrl_actions[i].friend[0] == '\0')
+		if (strcmp(microrl_actions[i].parent, parent) == 0 &&
+				   microrl_actions[i].friend[0] == '\0' &&
+				   microrl_actions[i].help_msg[0] != '\0')
 		{
 
-			print_help_line(microrl_actions[i].cmd, level);
+			print_help_line(i, level);
 			if (microrl_actions[i].cmd[0] != '\0')
 			{
 				print_help_recursive(microrl_actions[i].cmd, level + 1);
@@ -185,20 +222,6 @@ int print_help(int argc, const char * const * argv)
 	print ("Use TAB key for completion"); print (ENDL);
 	print ("Command:"); print (ENDL);
 	print_help_recursive("", 0);
-	/*print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_HELP);
-					print(COLOR_NC); 			print ("\t - this message"); 		print (ENDL);
-	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_CLEAR);
-					print(COLOR_NC); 			print ("\t - clear screen");   		print (ENDL);
-	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_LED);
-					print(COLOR_NC); 			print ("\t - switch led"); 			print (ENDL);
-	print ("\t "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_OFF);
-					print(COLOR_NC); 			print ("\t ^ turn off"); 			print (ENDL);
-	print ("\t "); print(COLOR_LIGHT_GREEN); 	print (_SCMD_ON);
-					print(COLOR_NC); 			print ("\t ^ turn on"); 			print (ENDL);
-	print ("\t "); print(COLOR_LIGHT_GREEN); 	print ("[]");
-					print(COLOR_NC); 			print ("\t ^ empty to toggle"); 	print (ENDL);
-	print ("\t"); 	print(COLOR_GREEN); 		print (_CMD_TIME);
-					print(COLOR_NC); 			print ("\t - show time"); 			print (ENDL);*/
 	return 0;
 }
 

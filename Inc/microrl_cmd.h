@@ -117,6 +117,39 @@ typedef enum {
 typedef struct {
 	microrl_color_e name;
 	char code[10];
+} microrl_color_t;
+
+const microrl_color_t microrl_color_lookup [] =
+{
+		{C_NC,		COLOR_NC},
+		{C_WHITE,	COLOR_WHITE},
+		{C_BLACK,	COLOR_BLACK},
+		{C_BLUE,	COLOR_BLUE},
+		{C_L_BLUE,	COLOR_LIGHT_BLUE},
+		{C_GREEN,	COLOR_GREEN},
+		{C_L_GREEN,	COLOR_LIGHT_GREEN},
+		{C_CYAN,	COLOR_CYAN},
+		{C_L_CYAN,	COLOR_LIGHT_CYAN},
+		{C_RED,		COLOR_RED},
+		{C_L_RED,	COLOR_LIGHT_RED},
+		{C_PURPLE,	COLOR_PURPLE},
+		{C_L_PURPLE,COLOR_LIGHT_PURPLE},
+		{C_BROWN,	COLOR_BROWN},
+		{C_YELLOW,	COLOR_YELLOW},
+		{C_GRAY,	COLOR_GRAY},
+		{C_L_GRAY,	COLOR_LIGHT_GRAY}
 };
+
+#define microrl_color_lookup_length (sizeof(microrl_color_lookup)/sizeof(microrl_color_t))
+
+const microrl_color_e microrl_help_color [] =
+{
+		C_GREEN,
+		C_L_GREEN,
+		C_PURPLE,
+		C_L_PURPLE
+};
+
+#define microrl_help_color_lenght (sizeof(microrl_help_color)/sizeof(microrl_color_e))
 
 #endif /* MICRORL_CMD_H_ */
