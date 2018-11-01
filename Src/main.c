@@ -111,17 +111,19 @@ void print (const char * str)
 	while (((USBD_CDC_HandleTypeDef*)(hUsbDeviceFS.pClassData))->TxState!=0);
 	CDC_Transmit_FS((uint8_t*)str, len);
 
-//	char test_str[256];
-//	len = 0;
-//	uint16_t i = 0;
-//	while (str[len] != 0)
-//	{
-//		if (str[len] >= ' ')
-//			test_str[i++] = str[len];
-//		len++;
-//	}
-//	test_str[i] = '\0';
-//	SEGGER_RTT_WriteString(0,test_str);
+#if defined (SEGGER_RTT_PRINT)
+	char test_str[256];
+	len = 0;
+	uint16_t i = 0;
+	while (str[len] != 0)
+	{
+		if (str[len] >= ' ')
+			test_str[i++] = str[len];
+		len++;
+	}
+	test_str[i] = '\0';
+	SEGGER_RTT_WriteString(0,test_str);
+#endif
 }
 
 int find_color_by_name(microrl_color_e color)
@@ -152,76 +154,88 @@ int str_length(const char * str)
 	return i;
 }
 
-int print_help_line(int n, int level)
-{
-	for (int i = -4; i < level; i++)
-		print(" ");
-	print_color(microrl_actions[n].cmd, microrl_help_color[level]);
-	for (int i = 0; i < MICRORL_CMD_LENGTH + 2 - level - str_length(microrl_actions[n].cmd); i++)
-		print (" ");
-	switch (level){
-	case 0:
-		print ("-");
-		break;
-	case 1:
-		print ("^");
-		break;
-	default:
-		print ("#");
-		break;
-	}
-	print (" ");
-	print (microrl_actions[n].help_msg);
-	bool has_friends = false;
-	for (int i = 0; i < microrl_actions_length; i++)
-	{
-		if (strcmp(microrl_actions[i].friend, microrl_actions[n].cmd) == 0)
-		{
-			if (!has_friends)
-				print_color(" aka [", C_PURPLE);
-			else
-				print_color("/", C_PURPLE);
-			print_color (microrl_actions[i].cmd, C_L_PURPLE);
-			has_friends = true;
-		}
-	}
-	if (has_friends)
-		print_color("]", C_PURPLE);
-	print(ENDL);
-	return 0;
-}
-
-
-int print_help_recursive(const char * parent, int level)
-{
-	for (int i = 0; i < microrl_actions_length; i++)
-	{
-		if (strcmp(microrl_actions[i].parent, parent) == 0 &&
-				   microrl_actions[i].friend[0] == '\0' &&
-				   microrl_actions[i].help_msg[0] != '\0')
-		{
-
-			print_help_line(i, level);
-			if (microrl_actions[i].cmd[0] != '\0')
-			{
-				print_help_recursive(microrl_actions[i].cmd, level + 1);
-			}
-
-		}
-/*
- * print array[i]
- * search recursive (array[i] level)
- * if "" - show [..]
- */
-	}
-	return 0;
-}
+//bool has_friend(int i)
+//{
+//	assert_param(i < microrl_actions_length);
+//	return microrl_actions[i].friend[0] != '\0';
+//}
+//bool true_friends(int cmd, int friend)
+//{
+//	assert_param(cmd < microrl_actions_length);
+//	assert_param(friend  < microrl_actions_length);
+//	return ((strcmp(microrl_actions[cmd].cmd, 	microrl_actions[friend].friend) == 0) &&
+//			(strcmp(microrl_actions[cmd].parent, microrl_actions[friend].parent) == 0));
+//}
+//
+//int find_true_friend(int friend)
+//{
+//	assert_param(friend < microrl_actions_length);
+//	for (int i = 0; i < microrl_actions_length; i++)
+//		if (true_friends(i, friend))
+//			return i;
+//	return friend;
+//}
+//
+//bool true_cmd_name(int i, const char * cmd, const char * parent)
+//{
+//	assert_param(i < microrl_actions_length);
+//	return ((strcmp(microrl_actions [i].cmd, cmd) == 0) &&
+//			(strcmp(microrl_actions [i].parent, parent) == 0));
+//}
+//
+//int find_cmd_num(const char * cmd, const char * parent)
+//{
+//	for (int i = 0; i < microrl_actions_length; i++)
+//		if (true_cmd_name (i, cmd, parent))
+//			return i;
+//	return 0;
+//}
 
 int print_help(int argc, const char * const * argv)
 {
-	print ("Use TAB key for completion"); print (ENDL);
-	print ("Command:"); print (ENDL);
-	print_help_recursive("", 0);
+	print(_VER);
+	print(ENDL);
+	print ("Use ");
+	print_color("TAB", C_GREEN);
+	print(" key for completion");
+	print (ENDL);
+	print ("Available commands:");
+	for (int i = 0; i < microrl_actions_length; i++)
+	{
+		if (microrl_actions[i].level == -1) // print synonyms
+		{
+			assert_param(i > 0);
+			if (microrl_actions[i - 1].level != -1)
+				print_color(" aka ", C_L_PURPLE);
+			else
+				print_color("/", C_L_PURPLE);
+			print_color (microrl_actions[i].cmd, C_PURPLE);
+		}
+		else
+		{
+			print(ENDL);
+			for (int e = -4; e < microrl_actions[i].level; e++)
+				print(" ");
+			print_color(microrl_actions[i].cmd, microrl_help_color[microrl_actions[i].level]);
+			for (int e = 0; e < MICRORL_CMD_LENGTH + 2 -
+								microrl_actions[i].level - str_length(microrl_actions[i].cmd); e++)
+				print (" ");
+			switch (microrl_actions[i].level){
+			case 0:
+				print ("-");
+				break;
+			case 1:
+				print ("^");
+				break;
+			default:
+				print ("#");
+				break;
+			}
+			print (" ");
+			print (microrl_actions[i].help_msg);
+		}
+	}
+	print(ENDL);
 	return 0;
 }
 
@@ -257,92 +271,139 @@ int print_time (int argc, const char * const * argv)
 	print(ENDL);
 	return 0;
 }
+int led_show 		(int argc, const char * const * argv)
+{
+	print_color("LED is ", C_L_BLUE);
+	if (HAL_GPIO_ReadPin(LED_GPIO_Port, LED_Pin))
+		print_color("off", C_RED);
+	else
+		print_color("on", C_BLUE);
+	print(ENDL);
+	return 0;
+}
 int led_on 			(int argc, const char * const * argv)
 {
-
+	print("led_on");
+	print(ENDL);
+	for (int i = 0; i < argc; i++)
+	{
+		print_color(argv[i], C_L_BLUE);
+		print(" ");
+	}
+	print(ENDL);
+	return 0;
 }
 int led_off 		(int argc, const char * const * argv)
 {
-
+	print("led_off");
+	print(ENDL);
+	for (int i = 0; i < argc; i++)
+	{
+		print_color(argv[i], C_L_BLUE);
+		print(" ");
+	}
+	print(ENDL);
+	return 0;
 }
 int led_toggle 		(int argc, const char * const * argv)
 {
-
+	print("led_toggle");
+	print(ENDL);
+	for (int i = 0; i < argc; i++)
+	{
+		print_color(argv[i], C_L_BLUE);
+		print(" ");
+	}
+	print(ENDL);
+	return 0;
 }
 int time_show 		(int argc, const char * const * argv)
 {
-
+	print("time_show");
+	print(ENDL);
+	for (int i = 0; i < argc; i++)
+	{
+		print_color(argv[i], C_L_BLUE);
+		print(" ");
+	}
+	print(ENDL);
+	return 0;
 }
 int time_show_simple(int argc, const char * const * argv)
 {
-
+	print("time_show_simple");
+	print(ENDL);
+	for (int i = 0; i < argc; i++)
+	{
+		print_color(argv[i], C_L_BLUE);
+		print(" ");
+	}
+	print(ENDL);
+	return 0;
 }
 int time_set 		(int argc, const char * const * argv)
 {
-
+	print("time_set");
+	print(ENDL);
+	for (int i = 0; i < argc; i++)
+	{
+		print_color(argv[i], C_L_BLUE);
+		print(" ");
+	}
+	print(ENDL);
+	return 0;
 }
 
 int execute (int argc, const char * const * argv)
 {
-	int i = 0;
-	print_help(argc, argv);
-	/*// just iterate through argv word and compare it with your commands
-	while (i < argc) {
-		if ((strcmp (argv[i], _CMD_HELP) == 0)||
-			(strcmp (argv[i], _CMD_H) 	 == 0)||
-			(strcmp (argv[i], _CMD_Q) 	 == 0)) {
-			print (_VER);
-			print(ENDL);
-			print_help (argc, argv);        // print help
-		} else if ((strcmp (argv[i], _CMD_CLEAR) == 0)||
-				   (strcmp (argv[i], "clrscr")   == 0)||
-				   (strcmp (argv[i], "clr")      == 0)) {
-			clear_screen (argc, argv);
-		} else if ((strcmp (argv[i], _CMD_LED) == 0)) {
-			if (++i < argc) {
-				if (strcmp (argv[i], _SCMD_ON) == 0) {
-					HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
-				} else if (strcmp (argv[i], _SCMD_OFF) == 0) {
-					HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1);
-				} else {
-					print ("only '");
-					print (_SCMD_ON);
-					print ("' and '");
-					print (_SCMD_ON);
-					print ("' supported, leave empty to toggle");
-					print (ENDL);
-					return 1;
-				}
-			} else {
-				HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-			}
-			print (COLOR_LIGHT_BLUE);
-			if (HAL_GPIO_ReadPin(LED_GPIO_Port,LED_Pin))
-				print("LED off");
-			else
-				print("LED on");
-			print(COLOR_NC);
-			print (ENDL);
-			return 0;
-		} else if (strcmp (argv[i], _CMD_TIME) == 0) {
-			if (++i < argc)
+//	print_help(argc, argv);
+//	return 0;
+	int (*func)   (int argc, const char * const * argv ) = NULL;
+
+	/*
+	 * iterate throw levels and synonyms - run the func from the first (main) synonym
+	 * run last found functions with all parameters - functions should check or ignore additional parameters
+	 * if nothing found - show err msg
+	 */
+
+	int last_main_synonym = 0;
+	for (int i = 0; i < argc; i++)
+	{
+		for (int n = last_main_synonym; n < microrl_actions_length; n++)
+		{
+			int current_level = microrl_actions[n].level;
+			// next higher level command found, break;
+			if ((current_level != -1) && (current_level < i))
+				break;
+			if (current_level == i)
+				last_main_synonym = n;
+			if (strcmp(argv[i], microrl_actions[n].cmd) == 0)
 			{
-				print("Ctrl+C to stop");
-				print(ENDL);
-				show_time = true;
-			} else
-				print_time();
-		} else {
-			print (COLOR_RED);
-			print ("command: '");
-			print ((char*)argv[i]);
-			print ("' not found");
-			print (COLOR_NC);
-			print(ENDL);
+				func = microrl_actions[last_main_synonym++].func;
+				break;
+			}
 		}
-		i++;
-	}*/
-	return 0;
+		if (func == NULL)	// nothing found, nothing to do here
+			break;
+	}
+
+	if (func != NULL)
+	{
+		return func(argc, argv); // function found
+	}
+	else
+	{
+		print_color ("command: '", C_RED);
+		print_color ((char*)argv[0], C_RED);
+		print_color ("' not found", C_RED);
+		print(ENDL);
+		print_color ("use '", C_NC);
+		print_color ("?", C_GREEN);
+		print_color ("' for help", C_NC);
+		print (ENDL);
+		return 1;
+
+	}
 }
 
 #ifdef _USE_COMPLETE
@@ -354,36 +415,63 @@ char ** complet (int argc, const char * const * argv)
 
 	compl_word [0] = NULL;
 
-/*
-	// if there is token in cmdline
-	if (argc == 1) {
+	/*
+	 * if no parameters - print all cmd with friend =="" && father == ""
+	 * if parameter == 1 search with parent == ""
+	 * if parameter > 1 search with parent == (parameter-2)
+	 */
+
+	/*if (argc == 0)
+	{
+		// if there is no token in cmdline, just print all available token
+		for (int i = 0; i < microrl_actions_length; i++) {
+			if (microrl_actions[i].friend[0] == '\0' && microrl_actions[i].parent[0] == '\0')
+			compl_word[j++] = (char*) microrl_actions [i].cmd;
+		}
+	} else {
 		// get last entered token
 		char * bit = (char*)argv [argc-1];
 		// iterate through our available token and match it
-		for (int i = 0; i < _NUM_OF_CMD; i++) {
+		for (int i = 0; i < microrl_actions_length; i++) {
 			// if token is matched (text is part of our token starting from 0 char)
-			if (strstr(keyword [i], bit) == keyword [i]) {
+			if (strstr(microrl_actions [i].cmd, bit) == microrl_actions [i].cmd) {
+
+				 * parent must be argv[argc-2] ("" if argc == 1)
+				 * if argv[argc-2] has friend - parent == friend
+				 * correct friend should hve the same parent
+
+//				(((argc == 1) && strcmp(microrl_actions [i].parent, "") == 0) ||
+//							     (argc > 1 && strcmp(microrl_actions [i].parent, argv[argc-2]) == 0))
+				// c
+
+				char empty_parrent = '\0';
+				char * mh_parent = &empty_parrent;
+				int nr = i;
+//				if (argc > 1)
+//				{
+//					mh_parent = argv[argc - 2];
+//					for (int n = 0; n < microrl_actions_length; n++)
+//						if ((strcmp(microrl_actions[n].cmd, mh_parent) == 0) &&
+//							(has_friend(n)))
+//							mh_parent = microrl_actions[n].friend;
+//					if (microrl_actions[i].friend[0] != '\0') // if has a friend, use func/cmd from friend
+//					{
+//						for (int j = 0; j < microrl_actions_length; j++)
+//							if ((strcmp (microrl_actions[n].friend, microrl_actions[j].cmd) == 0) &&
+//									(strcmp (microrl_actions[n].parent, microrl_actions[j].parent) == 0))
+//								nr = j;
+//					}
+//				}
 				// add it to completion set
-				compl_word [j++] = keyword [i];
+				if (strcmp(microrl_actions [i].parent, mh_parent) == 0)
+					compl_word [j++] =(char*) microrl_actions [i].cmd;
 			}
 		}
-	}	else if ((argc > 1) && ((strcmp (argv[0], _CMD_LED)==0))) { // if command needs subcommands
-		// iterate through subcommand
-		for (int i = 0; i < _NUM_OF_LED_SCMD; i++) {
-			if (strstr (on_off_key [i], argv [argc-1]) == on_off_key [i]) {
-				compl_word [j++] = on_off_key [i];
-			}
-		}
-	} else { // if there is no token in cmdline, just print all available token
-		for (; j < _NUM_OF_CMD; j++) {
-			compl_word[j] = keyword [j];
-		}
-	}
+	}*/
 
 	// note! last ptr in array always must be NULL!!!
 	compl_word [j] = NULL;
 	// return set of variants
-*/
 	return compl_word;
 }
 #endif

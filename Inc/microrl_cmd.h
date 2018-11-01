@@ -8,13 +8,14 @@
 #ifndef MICRORL_CMD_H_
 #define MICRORL_CMD_H_
 
-#define _VER "DCF77 ver 1.0"
+#define _VER "DCF77 ver 0.1"
 
 int print_help 		(int argc, const char * const * argv);
 int clear_screen 	(int argc, const char * const * argv);
 int led_on 			(int argc, const char * const * argv);
 int led_off 		(int argc, const char * const * argv);
 int led_toggle 		(int argc, const char * const * argv);
+int led_show 		(int argc, const char * const * argv);
 int time_show 		(int argc, const char * const * argv);
 int time_show_simple(int argc, const char * const * argv);
 int time_set 		(int argc, const char * const * argv);
@@ -26,52 +27,54 @@ int print_time 		(int argc, const char * const * argv);
 #define MICRORL_HELP_MSG_LENGTH (44)
 
 typedef struct{
-	char cmd	  [MICRORL_CMD_LENGTH];
-	char friend	  [MICRORL_CMD_LENGTH];
-	char parent	  [MICRORL_CMD_LENGTH];
-	char help_msg [MICRORL_HELP_MSG_LENGTH];
-	int (*func)   (int argc, const char * const * argv );
+	int level;									// 0: top, 1: next, 2: next next; -1: same functions as above
+	char cmd	  [MICRORL_CMD_LENGTH];			// command name
+	char help_msg [MICRORL_HELP_MSG_LENGTH];	// help message
+	int (*func)   (int argc, const char * const * argv ); // pointer to function
 } microrl_action_t;
+
+/*
+ * Ex. Menu Structure:						should be formated in this way:
+ * help 	-- help message					{0, 	"help", "help message", print_help},
+ * h		-- -//-							{-1, 	"h", 	"", 			NULL},
+ * clr		-- clear screen					{0,		"clr",  "clear screen",	clear_scr},
+ * led  	-- led toggle					{0, 	"led",  "led toggle,	led_toggle},
+ * lamp  	-- -//-							{-1,	"lamp",	"",				NULL},
+ *   on 	-- turn led on					{1, 	"on",	"turn led on",	led_on},
+ *   off 	-- turn led off					{1, 	"off",	"turn led off",	led_off},
+ * time		-- show time once				{0,		"time",	"show time once", print_time},
+ *   show   -- autoupdate time				{1,		"show",	"autoupdate time", print_time_auto},
+ *   auto	-- -//-							{-1,	"auto", "",				NULL},
+ *     simple -- autoupdate without esc		{2,		"simple", "autoupdate without esc", print_time_no_esc}
+ *
+ * !      -//- == synonym for function above
+ * !!!    order of lines is important! the alternative names and sublevel commands are referenced for function above.
+ */
 
 const microrl_action_t microrl_actions [] =
 {
-		{"help", 	"",			"", 	"this message", 	print_help},
-		{"h", 		"help",		"", 	"", 				print_help},
-		{"?", 		"help", 	"", 	"", 				print_help},
-		{"clear", 	"",			"", 	"clear screen", 	clear_screen},
-		{"clr", 	"clear",	"", 	"clear screen", 	clear_screen},
-		{"clrscr",	"clear",	"", 	"clear screen", 	clear_screen},
-		{"led",		"",			"",		"toggle led",		led_toggle},
-		{ "on",		"",			"led",	"turn on",			led_on},
-		{ "off",	"",			"led",	"turn off",			led_off},
-		{"time",	"",			"",		"print time",		print_time},
-		{ "show", 	"",			"time",	"auto update",		time_show},
-		{  "simple","",			"show",	"auto for logging",	time_show_simple},
-		{ "set",	"",			"time", "time set hh:mm:ss",time_set},
+		{ 0, 		"help", 	"this message", 	print_help},
+		{-1,		"h", 		"", 				NULL},
+		{-1,		"?", 		"", 				NULL},
+		{ 0,		"clear", 	"clear screen", 	clear_screen},
+		{-1,		"clr", 		"", 				NULL},
+		{-1,		"clrscr",	"", 				NULL},
+		{ 0,		"led",		"toggle led",		led_toggle},
+		{   1,		"on",		"turn on",			led_on},
+		{   1,		"off",		"turn off",			led_off},
+		{   1,		"show", 	"show led",			led_show},
+		{     2,	"simple", 	"-no ESC-", 			led_show},
+		{ 0,		"time",		"print time",		print_time},
+		{   1,		"show", 	"auto update",		time_show},
+		{  -1,		"auto",		"",					NULL},
+		{     2,	"simple", 	"auto for logging",	time_show_simple},
+		{ 	1,		"set",		"time set 'hh:mm:ss'",time_set},
+		{  -1,		"enter",	"",					NULL}
 };
 
 #define microrl_actions_length (sizeof(microrl_actions)/sizeof(microrl_action_t))
 
-/*// definition commands word
-#define _CMD_HELP   "help"
-#define _CMD_H		"h"
-#define _CMD_Q		"?"
-#define _CMD_CLEAR  "clear"
-#define _CMD_LED	"led"
-// arguments for set/clear
-	#define _SCMD_ON  "on"
-	#define _SCMD_OFF  "off"
-#define _CMD_TIME	"time"
-
-#define _NUM_OF_CMD 4
-#define _NUM_OF_LED_SCMD 2
-
-//available  commands
-char * keyword [] = {_CMD_HELP, _CMD_H, _CMD_CLEAR, _CMD_LED, _CMD_TIME};
-// 'set/clear' command argements
-char * on_off_key [] = {_SCMD_ON, _SCMD_OFF};*/
-
-// array for comletion
+// array for completion
 char * compl_word [microrl_actions_length + 1];
 
 #define COLOR_CODE_LENGTH		(9)
