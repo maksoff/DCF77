@@ -17,9 +17,19 @@ int led_off 		(int argc, const char * const * argv);
 int led_toggle 		(int argc, const char * const * argv);
 int led_show 		(int argc, const char * const * argv);
 int time_show 		(int argc, const char * const * argv);
-int time_show_simple(int argc, const char * const * argv);
 int time_set 		(int argc, const char * const * argv);
 int print_time 		(int argc, const char * const * argv);
+int date_show 		(int argc, const char * const * argv);
+int date_set 		(int argc, const char * const * argv);
+int print_date 		(int argc, const char * const * argv);
+int echo_toggle 	(int argc, const char * const * argv);
+int echo_on 		(int argc, const char * const * argv);
+int echo_off 		(int argc, const char * const * argv);
+int echo_show 		(int argc, const char * const * argv);
+int color_toggle 	(int argc, const char * const * argv);
+int color_on 		(int argc, const char * const * argv);
+int color_off 		(int argc, const char * const * argv);
+int color_show 		(int argc, const char * const * argv);
 
 #define EMPTY_CMD_HELP "[]"
 
@@ -63,13 +73,21 @@ const microrl_action_t microrl_actions [] =
 		{   1,		"on",		"turn on",			led_on},
 		{   1,		"off",		"turn off",			led_off},
 		{   1,		"show", 	"show led",			led_show},
-		{     2,	"simple", 	"-no ESC-", 			led_show},
 		{ 0,		"time",		"print time",		print_time},
-		{   1,		"show", 	"auto update",		time_show},
-		{  -1,		"auto",		"",					NULL},
-		{     2,	"simple", 	"auto for logging",	time_show_simple},
+		{   1,		"auto", 	"auto update",		time_show},
+		{     2,	"simple", 	"auto for logging",	time_show},
 		{ 	1,		"set",		"time set 'hh:mm:ss'",time_set},
-		{  -1,		"enter",	"",					NULL}
+		{ 0,		"date",		"print date",		print_date},
+		{   1,		"auto", 	"print date with auto time", date_show},
+		{ 	1,		"set",		"date set 'YYYY:MM:DD'",date_set},
+//		{ 0,		"echo",		"toggle echo",		echo_toggle},
+//		{   1,		"on",		"turn on",			echo_on},
+//		{   1,		"off",		"turn off",			echo_off},
+//		{   1,		"show", 	"show echo",		echo_show},
+//		{ 0,		"color",	"toggle color",		color_toggle},
+//		{   1,		"on",		"turn on",			color_on},
+//		{   1,		"off",		"turn off",			color_off},
+//		{   1,		"show", 	"show color",		color_show},
 };
 
 #define microrl_actions_length (sizeof(microrl_actions)/sizeof(microrl_action_t))

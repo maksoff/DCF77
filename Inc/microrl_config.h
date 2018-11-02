@@ -83,10 +83,15 @@ New line symbol (ENTER) */
 #define _ENTER_AUTO
 
 #if defined (_ENTER_AUTO)
+#define ENTER "\r\n"
 #elif defined (_ENTER_CR)
+#define ENTER "\r"
 #elif defined (_ENTER_LF)
+#define ENTER "\n"
 #elif defined (_ENTER_CRLF)
+#define ENTER "\r\n"
 #elif defined (_ENTER_LFCR)
+#define ENTER "\n\r"
 #else
 #error "You must define new line symbol."
 #endif

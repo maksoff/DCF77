@@ -67,12 +67,10 @@ RTC_HandleTypeDef hrtc;
 microrl_t mcrl;
 microrl_t * p_mcrl = &mcrl;
 
-RTC_TimeTypeDef time;
-RTC_TimeTypeDef *p_time = &time;
-
 bool CDC_is_ready = false;
 bool tick = false;
 bool show_time = false;
+bool show_simple_time = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,11 +91,6 @@ void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc)
 }
 void process_cdc_input_data(uint8_t* Buf, uint32_t *Len)
 {
-//	uint8_t buff[2];
-//	buff[0] = Buf[0]/10+'0';
-//	buff[1] = Buf[0]%10+'0';
-//	CDC_Transmit_FS(buff,2);
-//	return;
 	for (uint32_t i = 0; i < (*Len); i++)
 		fifo_push((buff_t) Buf[i]);
 }
@@ -212,21 +205,23 @@ int clear_screen(int argc, const char * const * argv)
 
 void time_to_string(char * str)
 {
-	HAL_RTC_GetTime(&hrtc, p_time, RTC_FORMAT_BCD);
-	str[0] = (((p_time->Hours)&0xF0)>>4) + '0';
-	str[1] = (((p_time->Hours)&0x0F)>>0) + '0';
+	RTC_TimeTypeDef time;
+	HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BCD);
+	str[0] = (((time.Hours)&0xF0)>>4) + '0';
+	str[1] = (((time.Hours)&0x0F)>>0) + '0';
 	str[2] = ':';
-	str[3] = (((p_time->Minutes)&0xF0)>>4) + '0';
-	str[4] = (((p_time->Minutes)&0x0F)>>0) + '0';
+	str[3] = (((time.Minutes)&0xF0)>>4) + '0';
+	str[4] = (((time.Minutes)&0x0F)>>0) + '0';
 	str[5] = ':';
-	str[6] = (((p_time->Seconds)&0xF0)>>4) + '0';
-	str[7] = (((p_time->Seconds)&0x0F)>>0) + '0';
+	str[6] = (((time.Seconds)&0xF0)>>4) + '0';
+	str[7] = (((time.Seconds)&0x0F)>>0) + '0';
 	str[8] = '\0';
 
 }
 
 int print_time (int argc, const char * const * argv)
 {
+	show_time = false;
 	char str[9];
 	time_to_string (str);
 	print(COLOR_LIGHT_BLUE);
@@ -241,56 +236,35 @@ int led_show 		(int argc, const char * const * argv)
 	if (HAL_GPIO_ReadPin(LED_GPIO_Port, LED_Pin))
 		print_color("off", C_RED);
 	else
-		print_color("on", C_BLUE);
+		print_color("on", C_L_GREEN);
 	print(ENDL);
 	return 0;
 }
 int led_on 			(int argc, const char * const * argv)
 {
-	print("led_on");
-	print(ENDL);
-	for (int i = 0; i < argc; i++)
-	{
-		print_color(argv[i], C_L_BLUE);
-		print(" ");
-	}
-	print(ENDL);
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 0);
+	led_show(argc, argv);
 	return 0;
 }
 int led_off 		(int argc, const char * const * argv)
 {
-	print("led_off");
-	print(ENDL);
-	for (int i = 0; i < argc; i++)
-	{
-		print_color(argv[i], C_L_BLUE);
-		print(" ");
-	}
-	print(ENDL);
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1);
+	led_show(argc, argv);
 	return 0;
 }
 int led_toggle 		(int argc, const char * const * argv)
 {
-	print("led_toggle");
-	print(ENDL);
-	for (int i = 0; i < argc; i++)
-	{
-		print_color(argv[i], C_L_BLUE);
-		print(" ");
-	}
-	print(ENDL);
+	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+	led_show(argc, argv);
 	return 0;
 }
 int time_show 		(int argc, const char * const * argv)
 {
-	print("time_show");
+	if ((argc > 2) && (strcmp(argv[2], "simple") == 0))
+		show_simple_time = true;
+	print_color("Ctrl+C or 'time' to terminate", C_L_RED);
 	print(ENDL);
-	for (int i = 0; i < argc; i++)
-	{
-		print_color(argv[i], C_L_BLUE);
-		print(" ");
-	}
-	print(ENDL);
+	show_time = true;
 	return 0;
 }
 int time_show_simple(int argc, const char * const * argv)
@@ -305,16 +279,134 @@ int time_show_simple(int argc, const char * const * argv)
 	print(ENDL);
 	return 0;
 }
+
+
+void print_time_set_error (void)
+{
+	print (COLOR_RED);
+	print ("enter time in hh:mm:ss format, ex: 'time set 18:03:22'");
+	print (ENDL);
+	print ("time updated on enter");
+	print (COLOR_NC);
+	print (ENDL);
+}
+
 int time_set 		(int argc, const char * const * argv)
 {
-	print("time_set");
-	print(ENDL);
-	for (int i = 0; i < argc; i++)
+	RTC_TimeTypeDef sTime;
+	if (argc != 3)
 	{
-		print_color(argv[i], C_L_BLUE);
-		print(" ");
+		print_time_set_error();
+		return 1;
 	}
+	sTime.Hours   = ((argv[2][0] - '0') << 4) | (argv[2][1] - '0');
+	sTime.Minutes = ((argv[2][3] - '0') << 4) | (argv[2][4] - '0');
+	sTime.Seconds = ((argv[2][6] - '0') << 4) | (argv[2][7] - '0');
+	if (sTime.Hours > 0x23)
+		sTime.Hours = 0x23;
+	if (sTime.Minutes > 0x59)
+		sTime.Minutes = 0x59;
+	if (sTime.Seconds > 0x59)
+		sTime.Seconds = 0x59;
+	HAL_RTC_SetTime (&hrtc,  &sTime, RTC_FORMAT_BCD);
 	print(ENDL);
+	return 0;
+}
+
+int date_show 		(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+int date_set 		(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+// ----------------------------------------------------------------------
+// Given the year, month and day, return the day number.
+// (see: https://alcor.concordia.ca/~gpkatch/gdate-method.html)
+// ----------------------------------------------------------------------
+int CalcDayNumFromDate(uint32_t y, uint32_t m, uint32_t d)
+{
+  m = (m + 9) % 12;
+  y -= m / 10;
+  uint32_t dn = 365*y + y/4 - y/100 + y/400 + (m*306 + 5)/10 + (d - 1);
+  return (dn % 7);
+}
+
+void date_to_string (char * str)
+{
+	RTC_DateTypeDef sDate;
+	HAL_RTC_GetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
+	str[0] = '2';
+	str[1] = '0';
+	str[2] = ((sDate.Year & 0xF0) >> 4) + '0';
+	str[3] = (sDate.Year & 0x0F) + '0';
+	str[4] = '.';
+	str[5] = ((sDate.Month & 0xF0) >> 4) + '0';
+	str[6] = (sDate.Month & 0x0F) + '0';
+	str[7] = '.';
+	str[8] = ((sDate.Date & 0xF0) >> 4) + '0';
+	str[9] = (sDate.Date & 0x0F) + '0';
+}
+
+void day_to_string (char * str)
+{
+	RTC_DateTypeDef sDate;
+	HAL_RTC_GetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
+
+}
+
+int print_date 		(int argc, const char * const * argv)
+{
+	char str[10];
+	date_to_string(str);
+	print(COLOR_LIGHT_BLUE);
+	print(str);
+	print(COLOR_NC);
+	print(ENDL);
+	return 0;
+}
+
+
+int echo_toggle 	(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+int echo_on 		(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+int echo_off 		(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+int echo_show 		(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+int color_toggle 	(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+int color_on 		(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+int color_off 		(int argc, const char * const * argv)
+{
+	return 0;
+}
+
+int color_show 		(int argc, const char * const * argv)
+{
 	return 0;
 }
 
@@ -447,9 +539,12 @@ char ** complet (int argc, const char * const * argv)
 void sigint (void)
 {
 	show_time = false;
+	show_simple_time = false;
 	print (ENDL);
 	print ("^C catched!");
-	print (ENDL);
+	int i = 0;
+	while (ENTER[i])
+		microrl_insert_char(p_mcrl, ENTER[i++]);
 }
 
 
@@ -521,13 +616,20 @@ int main(void)
 	  {
 		  if (show_time)
 		  {
-			  print("\r ");
+			  if (!show_simple_time)
+				  print("\r ");
+			  else
+				  print (ENDL);
 			  char str[9];
 			  time_to_string (str);
-			  print(COLOR_PURPLE);
+			  if (!show_simple_time)
+				  print(COLOR_PURPLE);
 			  print(str);
-			  print(COLOR_NC);
-			  print("\r");
+			  if (!show_simple_time)
+			  {
+				  print(COLOR_NC);
+				  print("\r");
+			  }
 		  }
 		  tick = false;
 	  }
