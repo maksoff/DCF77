@@ -154,42 +154,6 @@ int str_length(const char * str)
 	return i;
 }
 
-//bool has_friend(int i)
-//{
-//	assert_param(i < microrl_actions_length);
-//	return microrl_actions[i].friend[0] != '\0';
-//}
-//bool true_friends(int cmd, int friend)
-//{
-//	assert_param(cmd < microrl_actions_length);
-//	assert_param(friend  < microrl_actions_length);
-//	return ((strcmp(microrl_actions[cmd].cmd, 	microrl_actions[friend].friend) == 0) &&
-//			(strcmp(microrl_actions[cmd].parent, microrl_actions[friend].parent) == 0));
-//}
-//
-//int find_true_friend(int friend)
-//{
-//	assert_param(friend < microrl_actions_length);
-//	for (int i = 0; i < microrl_actions_length; i++)
-//		if (true_friends(i, friend))
-//			return i;
-//	return friend;
-//}
-//
-//bool true_cmd_name(int i, const char * cmd, const char * parent)
-//{
-//	assert_param(i < microrl_actions_length);
-//	return ((strcmp(microrl_actions [i].cmd, cmd) == 0) &&
-//			(strcmp(microrl_actions [i].parent, parent) == 0));
-//}
-//
-//int find_cmd_num(const char * cmd, const char * parent)
-//{
-//	for (int i = 0; i < microrl_actions_length; i++)
-//		if (true_cmd_name (i, cmd, parent))
-//			return i;
-//	return 0;
-//}
 
 int print_help(int argc, const char * const * argv)
 {
@@ -421,53 +385,56 @@ char ** complet (int argc, const char * const * argv)
 	 * if parameter > 1 search with parent == (parameter-2)
 	 */
 
-	/*if (argc == 0)
+	/*
+	 * print cmd and synonyms with level == argc-1.
+	 * if argc == 0 print without synonyms
+	 */
+
+	if (argc == 0)
 	{
 		// if there is no token in cmdline, just print all available token
 		for (int i = 0; i < microrl_actions_length; i++) {
-			if (microrl_actions[i].friend[0] == '\0' && microrl_actions[i].parent[0] == '\0')
+			if (microrl_actions[i].level == 0)
 			compl_word[j++] = (char*) microrl_actions [i].cmd;
 		}
 	} else {
 		// get last entered token
 		char * bit = (char*)argv [argc-1];
 		// iterate through our available token and match it
-		for (int i = 0; i < microrl_actions_length; i++) {
-			// if token is matched (text is part of our token starting from 0 char)
-			if (strstr(microrl_actions [i].cmd, bit) == microrl_actions [i].cmd) {
-
-				 * parent must be argv[argc-2] ("" if argc == 1)
-				 * if argv[argc-2] has friend - parent == friend
-				 * correct friend should hve the same parent
-
-//				(((argc == 1) && strcmp(microrl_actions [i].parent, "") == 0) ||
-//							     (argc > 1 && strcmp(microrl_actions [i].parent, argv[argc-2]) == 0))
-				// c
-
-				char empty_parrent = '\0';
-				char * mh_parent = &empty_parrent;
-				int nr = i;
-//				if (argc > 1)
-//				{
-//					mh_parent = argv[argc - 2];
-//					for (int n = 0; n < microrl_actions_length; n++)
-//						if ((strcmp(microrl_actions[n].cmd, mh_parent) == 0) &&
-//							(has_friend(n)))
-//							mh_parent = microrl_actions[n].friend;
-//					if (microrl_actions[i].friend[0] != '\0') // if has a friend, use func/cmd from friend
-//					{
-//						for (int j = 0; j < microrl_actions_length; j++)
-//							if ((strcmp (microrl_actions[n].friend, microrl_actions[j].cmd) == 0) &&
-//									(strcmp (microrl_actions[n].parent, microrl_actions[j].parent) == 0))
-//								nr = j;
-//					}
-//				}
-				// add it to completion set
-				if (strcmp(microrl_actions [i].parent, mh_parent) == 0)
-					compl_word [j++] =(char*) microrl_actions [i].cmd;
+		// based on previous tokens in the line, find the correct one shift
+		int last_main_synonym = 0;
+		int synonym_level = 0;
+		bool tokens_found = false;
+		for (int i = 0; i < argc; i++)
+		{
+			for (int n = last_main_synonym; n < microrl_actions_length; n++)
+			{
+				tokens_found = false;
+				int current_level = microrl_actions[n].level;
+				// next higher level command found, break;
+				if (current_level != -1)
+					synonym_level = current_level; // save the synonym level
+				if ((current_level != -1) && (current_level < i))
+					break;
+				if (current_level == i)
+					last_main_synonym = n;
+				if ((i == argc - 1) && (strstr(microrl_actions [n].cmd, bit) == microrl_actions [n].cmd) &&
+										(i == synonym_level))
+				{
+					tokens_found = true;
+					compl_word [j++] =(char*) microrl_actions [n].cmd;
+				}
+				else if (strcmp(argv[i], microrl_actions[n].cmd) == 0)
+				{
+					last_main_synonym++;
+					tokens_found = true;
+					break;
+				}
 			}
+			if (!tokens_found)	// nothing found, nothing to do here
+				break;
 		}
-	}*/
+	}
 
 	// note! last ptr in array always must be NULL!!!
 	compl_word [j] = NULL;
