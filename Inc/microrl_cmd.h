@@ -16,12 +16,14 @@ int led_on 			(int argc, const char * const * argv);
 int led_off 		(int argc, const char * const * argv);
 int led_toggle 		(int argc, const char * const * argv);
 int led_show 		(int argc, const char * const * argv);
+int led_tick 		(int argc, const char * const * argv);
 int time_show 		(int argc, const char * const * argv);
 int time_set 		(int argc, const char * const * argv);
 int print_time 		(int argc, const char * const * argv);
 int date_show 		(int argc, const char * const * argv);
 int date_set 		(int argc, const char * const * argv);
 int print_date 		(int argc, const char * const * argv);
+int print_weekday 	(int argc, const char * const * argv);
 int echo_toggle 	(int argc, const char * const * argv);
 int echo_on 		(int argc, const char * const * argv);
 int echo_off 		(int argc, const char * const * argv);
@@ -63,23 +65,31 @@ typedef struct{
 
 const microrl_action_t microrl_actions [] =
 {
-		{ 0, 		"help", 	"this message", 	print_help},
-		{-1,		"h", 		"", 				NULL},
-		{-1,		"?", 		"", 				NULL},
-		{ 0,		"clear", 	"clear screen", 	clear_screen},
-		{-1,		"clr", 		"", 				NULL},
-		{-1,		"clrscr",	"", 				NULL},
-		{ 0,		"led",		"toggle led",		led_toggle},
-		{   1,		"on",		"turn on",			led_on},
-		{   1,		"off",		"turn off",			led_off},
-		{   1,		"show", 	"show led",			led_show},
-		{ 0,		"time",		"print time",		print_time},
-		{   1,		"auto", 	"auto update",		time_show},
-		{     2,	"simple", 	"auto for logging",	time_show},
-		{ 	1,		"set",		"time set 'hh:mm:ss'",time_set},
-		{ 0,		"date",		"print date",		print_date},
+		{ 0, 		"help", 	"this message", 			print_help},
+		{-1,		"h", 		"", 						NULL},
+		{-1,		"?", 		"", 						NULL},
+		{ 0,		"clear", 	"clear screen", 			clear_screen},
+		{-1,		"clr", 		"", 						NULL},
+		{-1,		"clrscr",	"", 						NULL},
+		{ 0,		"led",		"toggle led",				led_toggle},
+		{   1,		"on",		"turn on",					led_on},
+		{   1,		"off",		"turn off",					led_off},
+		{   1,		"show", 	"show led",					led_show},
+		{   1, 		"tick",		"toggle every second",		led_tick},
+		{ 0,		"time",		"print time",				print_time},
+		{   1,		"auto", 	"auto update",				time_show},
+		{  -1,		"show", 	"",							NULL},
+		{     2,	"simple", 	"auto for logging",			time_show},
+		{ 	1,		"set",		"time set 'hh:mm:ss'",		time_set},
+		{ 0,		"date",		"print date",				print_date},
 		{   1,		"auto", 	"print date with auto time", date_show},
-		{ 	1,		"set",		"date set 'YYYY:MM:DD'",date_set},
+		{  -1,		"show", 	"",							NULL},
+		{     2,	"simple", 	"auto for logging",			date_show},
+		{ 	1,		"set",		"date set 'YYYY.MM.DD'",	date_set},
+		{ 0,		"set",		"sets time or date", 		NULL},
+		{   1,		"time",		"sets time 'hh:mm:ss'",		time_set},
+		{   1, 		"date", 	"sets date 'YYYY.MM.DD'",	date_set},
+		{ 0,		"weekday",	"day of the week",			print_weekday},
 //		{ 0,		"echo",		"toggle echo",		echo_toggle},
 //		{   1,		"on",		"turn on",			echo_on},
 //		{   1,		"off",		"turn off",			echo_off},

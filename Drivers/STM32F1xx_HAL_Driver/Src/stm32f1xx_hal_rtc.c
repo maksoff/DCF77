@@ -595,7 +595,6 @@ HAL_StatusTypeDef HAL_RTC_GetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTim
 
   /* Read the time counter*/
   counter_time = RTC_ReadTimeCounter(hrtc);
-
   /* Fill the structure fields with the read parameters */
   hours = counter_time / 3600U;
   sTime->Minutes  = (uint8_t)((counter_time % 3600U) / 60U);
@@ -625,7 +624,7 @@ HAL_StatusTypeDef HAL_RTC_GetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTim
     }
 
     /* Set updated time in decreasing counter by number of days elapsed */
-    counter_time -= (days_elapsed * 24U * 3600U);
+    counter_time -= (days_elapsed * 24U * 3600U - 1);
     
     /* Write time counter in RTC registers */
     if (RTC_WriteTimeCounter(hrtc, counter_time) != HAL_OK)

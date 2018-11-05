@@ -57,6 +57,12 @@
 #include "usbd_cdc_if.h"
 #include "SEGGER_RTT.h"
 #include "fifo.h"
+
+/*
+ * change this code in hal_rtc
+ * Set updated time in decreasing counter by number of days elapsed
+ * counter_time -= (days_elapsed * 24U * 3600U - 1);
+ */
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -70,7 +76,9 @@ microrl_t * p_mcrl = &mcrl;
 bool CDC_is_ready = false;
 bool tick = false;
 bool show_time = false;
+bool show_date = false;
 bool show_simple_time = false;
+bool led_tack = true;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -222,6 +230,7 @@ void time_to_string(char * str)
 int print_time (int argc, const char * const * argv)
 {
 	show_time = false;
+	show_date = false;
 	char str[9];
 	time_to_string (str);
 	print(COLOR_LIGHT_BLUE);
@@ -258,10 +267,16 @@ int led_toggle 		(int argc, const char * const * argv)
 	led_show(argc, argv);
 	return 0;
 }
+
+
+int led_tick 		(int argc, const char * const * argv)
+{
+	led_tack ^= 1;
+	return 0;
+}
 int time_show 		(int argc, const char * const * argv)
 {
-	if ((argc > 2) && (strcmp(argv[2], "simple") == 0))
-		show_simple_time = true;
+	show_simple_time = ((argc > 2) && (strcmp(argv[2], "simple") == 0));
 	print_color("Ctrl+C or 'time' to terminate", C_L_RED);
 	print(ENDL);
 	show_time = true;
@@ -281,22 +296,18 @@ int time_show_simple(int argc, const char * const * argv)
 }
 
 
-void print_time_set_error (void)
-{
-	print (COLOR_RED);
-	print ("enter time in hh:mm:ss format, ex: 'time set 18:03:22'");
-	print (ENDL);
-	print ("time updated on enter");
-	print (COLOR_NC);
-	print (ENDL);
-}
 
 int time_set 		(int argc, const char * const * argv)
 {
 	RTC_TimeTypeDef sTime;
 	if (argc != 3)
 	{
-		print_time_set_error();
+		print (COLOR_RED);
+		print ("enter time in hh:mm:ss format, ex: 'time set 18:03:22'");
+		print (ENDL);
+		print ("time updated on enter");
+		print (COLOR_NC);
+		print (ENDL);
 		return 1;
 	}
 	sTime.Hours   = ((argv[2][0] - '0') << 4) | (argv[2][1] - '0');
@@ -309,30 +320,43 @@ int time_set 		(int argc, const char * const * argv)
 	if (sTime.Seconds > 0x59)
 		sTime.Seconds = 0x59;
 	HAL_RTC_SetTime (&hrtc,  &sTime, RTC_FORMAT_BCD);
-	print(ENDL);
+	print_time(argc, argv);
 	return 0;
 }
 
 int date_show 		(int argc, const char * const * argv)
 {
+	show_simple_time = ((argc > 2) && (strcmp(argv[2], "simple") == 0));
+	print_color("Ctrl+C or 'time' to terminate", C_L_RED);
+	print(ENDL);
+	show_date = true;
+	show_time = true;
 	return 0;
 }
 
 int date_set 		(int argc, const char * const * argv)
 {
+	RTC_DateTypeDef sDate;
+	if (argc != 3)
+	{
+		print (COLOR_RED);
+		print ("enter date in YYYY.MM.DD format, ex: 'date set 2018.11.02'");
+		print (COLOR_NC);
+		print (ENDL);
+		return 1;
+	}
+	sDate.Year   = ((argv[2][2] - '0') << 4) | (argv[2][3] - '0');
+	sDate.Month  = ((argv[2][5] - '0') << 4) | (argv[2][6] - '0');
+	sDate.Date   = ((argv[2][8] - '0') << 4) | (argv[2][9] - '0');
+	if (sDate.Year > 0x99)
+		sDate.Year = 0x99;
+	if (sDate.Month > 0x12)
+		sDate.Month = 0x12;
+	if (sDate.Date > 0x31)
+		sDate.Date = 0x31;
+	HAL_RTC_SetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
+	print_date(argc, argv);
 	return 0;
-}
-
-// ----------------------------------------------------------------------
-// Given the year, month and day, return the day number.
-// (see: https://alcor.concordia.ca/~gpkatch/gdate-method.html)
-// ----------------------------------------------------------------------
-int CalcDayNumFromDate(uint32_t y, uint32_t m, uint32_t d)
-{
-  m = (m + 9) % 12;
-  y -= m / 10;
-  uint32_t dn = 365*y + y/4 - y/100 + y/400 + (m*306 + 5)/10 + (d - 1);
-  return (dn % 7);
 }
 
 void date_to_string (char * str)
@@ -349,6 +373,19 @@ void date_to_string (char * str)
 	str[7] = '.';
 	str[8] = ((sDate.Date & 0xF0) >> 4) + '0';
 	str[9] = (sDate.Date & 0x0F) + '0';
+	str[10] = '\0';
+}
+
+int print_weekday (int argc, const char * const * argv)
+{
+	RTC_DateTypeDef sDate;
+	HAL_RTC_GetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
+	char str[2];
+	str[0] = (sDate.WeekDay + '0');
+	str[1] = '\0';
+	print (str);
+	print (ENDL);
+	return 0;
 }
 
 void day_to_string (char * str)
@@ -423,29 +460,47 @@ int execute (int argc, const char * const * argv)
 	 */
 
 	int last_main_synonym = 0;
+	int synonym_level = 0;
+	bool tokens_found = false;
 	for (int i = 0; i < argc; i++)
 	{
 		for (int n = last_main_synonym; n < microrl_actions_length; n++)
 		{
+			tokens_found = false;
 			int current_level = microrl_actions[n].level;
 			// next higher level command found, break;
+			if (current_level != -1)
+				synonym_level = current_level; // save the synonym level
 			if ((current_level != -1) && (current_level < i))
 				break;
 			if (current_level == i)
 				last_main_synonym = n;
-			if (strcmp(argv[i], microrl_actions[n].cmd) == 0)
+			if ((strcmp(argv[i], microrl_actions[n].cmd) == 0) &&
+					(i == synonym_level))
 			{
+				tokens_found = true;
 				func = microrl_actions[last_main_synonym++].func;
 				break;
 			}
 		}
-		if (func == NULL)	// nothing found, nothing to do here
+		if (!tokens_found)	// nothing found, nothing to do here
 			break;
 	}
 
 	if (func != NULL)
 	{
 		return func(argc, argv); // function found
+	} else if (tokens_found)
+	{
+		print_color ("command: '", C_L_RED);
+		print_color ((char*)argv[0], C_L_RED);
+		print_color ("' needs additional arguments", C_L_RED);
+		print(ENDL);
+		print_color ("use '", C_NC);
+		print_color ("?", C_GREEN);
+		print_color ("' for help", C_NC);
+		print (ENDL);
+		return 1;
 	}
 	else
 	{
@@ -516,7 +571,7 @@ char ** complet (int argc, const char * const * argv)
 					tokens_found = true;
 					compl_word [j++] =(char*) microrl_actions [n].cmd;
 				}
-				else if (strcmp(argv[i], microrl_actions[n].cmd) == 0)
+				else if ((strcmp(argv[i], microrl_actions[n].cmd) == 0) && (i == synonym_level))
 				{
 					last_main_synonym++;
 					tokens_found = true;
@@ -539,6 +594,7 @@ char ** complet (int argc, const char * const * argv)
 void sigint (void)
 {
 	show_time = false;
+	show_date = false;
 	show_simple_time = false;
 	print (ENDL);
 	print ("^C catched!");
@@ -620,16 +676,30 @@ int main(void)
 				  print("\r ");
 			  else
 				  print (ENDL);
-			  char str[9];
-			  time_to_string (str);
+			  char time[9];
+			  char date[11];
+			  time_to_string (time);
+			  if(show_date)
+				  date_to_string(date);
 			  if (!show_simple_time)
 				  print(COLOR_PURPLE);
-			  print(str);
+			  if (show_date)
+			  {
+				  print(date);
+				  print(" ");
+			  }
+			  print(time);
 			  if (!show_simple_time)
 			  {
 				  print(COLOR_NC);
 				  print("\r");
 			  }
+		  }
+		  if (led_tack)
+		  {
+			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+			  HAL_Delay(100);
+			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  }
 		  tick = false;
 	  }
@@ -741,10 +811,10 @@ static void MX_RTC_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
-  DateToUpdate.Month = RTC_MONTH_OCTOBER;
-  DateToUpdate.Date = 0x29;
-  DateToUpdate.Year = 0x0;
+  DateToUpdate.WeekDay = RTC_WEEKDAY_FRIDAY;
+  DateToUpdate.Month = RTC_MONTH_NOVEMBER;
+  DateToUpdate.Date = 0x02;
+  DateToUpdate.Year = 0x18;
 
   if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
   {
