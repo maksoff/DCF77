@@ -63,6 +63,8 @@
 #define LED_GPIO_Port GPIOC
 #define USB_UP_Pin GPIO_PIN_15
 #define USB_UP_GPIO_Port GPIOA
+#define DCF77_Pin GPIO_PIN_9
+#define DCF77_GPIO_Port GPIOB
 
 /* ########################## Assert Selection ############################## */
 /**

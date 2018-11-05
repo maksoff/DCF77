@@ -595,6 +595,7 @@ HAL_StatusTypeDef HAL_RTC_GetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTim
 
   /* Read the time counter*/
   counter_time = RTC_ReadTimeCounter(hrtc);
+
   /* Fill the structure fields with the read parameters */
   hours = counter_time / 3600U;
   sTime->Minutes  = (uint8_t)((counter_time % 3600U) / 60U);

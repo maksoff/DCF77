@@ -17,6 +17,7 @@ int led_off 		(int argc, const char * const * argv);
 int led_toggle 		(int argc, const char * const * argv);
 int led_show 		(int argc, const char * const * argv);
 int led_tick 		(int argc, const char * const * argv);
+int led_dcf77 		(int argc, const char * const * argv);
 int time_show 		(int argc, const char * const * argv);
 int time_set 		(int argc, const char * const * argv);
 int print_time 		(int argc, const char * const * argv);
@@ -76,6 +77,7 @@ const microrl_action_t microrl_actions [] =
 		{   1,		"off",		"turn off",					led_off},
 		{   1,		"show", 	"show led",					led_show},
 		{   1, 		"tick",		"toggle every second",		led_tick},
+		{   1, 		"dcf",		"bypass DCF77 signal",		led_dcf77},
 		{ 0,		"time",		"print time",				print_time},
 		{   1,		"auto", 	"auto update",				time_show},
 		{  -1,		"show", 	"",							NULL},

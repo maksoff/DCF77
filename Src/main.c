@@ -79,6 +79,7 @@ bool show_time = false;
 bool show_date = false;
 bool show_simple_time = false;
 bool led_tack = true;
+bool led_bypass_dcf77 = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -211,6 +212,9 @@ int clear_screen(int argc, const char * const * argv)
 	return 0;
 }
 
+/*
+ * @param pointer char str[9]
+ */
 void time_to_string(char * str)
 {
 	RTC_TimeTypeDef time;
@@ -274,6 +278,16 @@ int led_tick 		(int argc, const char * const * argv)
 	led_tack ^= 1;
 	return 0;
 }
+
+
+int led_dcf77 		(int argc, const char * const * argv)
+{
+	led_tack = false;
+	led_bypass_dcf77 ^= 1;
+	return 0;
+}
+
+
 int time_show 		(int argc, const char * const * argv)
 {
 	show_simple_time = ((argc > 2) && (strcmp(argv[2], "simple") == 0));
@@ -359,6 +373,9 @@ int date_set 		(int argc, const char * const * argv)
 	return 0;
 }
 
+/*
+ * @param pointer char str[11]
+ */
 void date_to_string (char * str)
 {
 	RTC_DateTypeDef sDate;
@@ -668,6 +685,8 @@ int main(void)
   {
 	  while (!fifo_is_empty())
 		  microrl_insert_char(p_mcrl, (int) fifo_pop());
+	  if (led_bypass_dcf77)
+		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1^HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin));
 	  if (tick)
 	  {
 		  if (show_time)
@@ -811,9 +830,9 @@ static void MX_RTC_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  DateToUpdate.WeekDay = RTC_WEEKDAY_FRIDAY;
-  DateToUpdate.Month = RTC_MONTH_NOVEMBER;
-  DateToUpdate.Date = 0x02;
+  DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
+  DateToUpdate.Month = RTC_MONTH_OCTOBER;
+  DateToUpdate.Date = 0x29;
   DateToUpdate.Year = 0x18;
 
   if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
@@ -839,6 +858,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
@@ -859,6 +879,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(USB_UP_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DCF77_Pin */
+  GPIO_InitStruct.Pin = DCF77_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(DCF77_GPIO_Port, &GPIO_InitStruct);
 
 }
 
