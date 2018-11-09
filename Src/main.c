@@ -637,6 +637,18 @@ uint32_t count_bits_in_u32(uint32_t i){
 	return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 }
 
+void print_u32 (uint32_t dig)
+{
+	char str [6];
+	for (int i = 0; i < 5; i++)
+	{
+		str[4 - i] = dig % 10 + '0';
+		dig /= 10;
+	}
+	str[5] = '\0';
+	print (str);
+}
+
 
 
 /* USER CODE END 0 */
@@ -700,9 +712,55 @@ int main(void)
   }
   uint32_t time_register = 0;
   uint32_t time_delay = HAL_GetTick();
-  uint32_t zero_cnt		= 0;
+  uint32_t zero_cnt = 0, one_cnt = 0;
+  uint32_t pos_cnt = 0;
+  bool time_array[60];
   while (1)
   {
+	  if (HAL_GetTick() - time_delay >= 10)
+	  {
+		  time_delay = HAL_GetTick();
+		  bool time_bit = HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin);
+		  if (time_bit)
+		  {
+			  if (zero_cnt)
+			  {
+				  print ("    0: ");
+				  print_u32(zero_cnt);
+				  print (ENDL);
+			  }
+			  if (zero_cnt > 170)
+			  {
+				  pos_cnt = 0;
+				  print("minute start");
+				  print(ENDL);
+			  }
+			  one_cnt++;
+			  zero_cnt = 0;
+		  } else {
+			  if (one_cnt)
+			  {
+				  print_u32(pos_cnt++);
+				  print(" 1: ");
+				  print_u32(one_cnt);
+			  }
+
+//			  if ((7 <= one_cnt) && (one_cnt <= 12))
+//			  {
+//				  time_array[pos_cnt++] = false;
+//				  print("0");
+//				  print(ENDL);
+//			  } else if ((16 <= one_cnt) && (24 <= one_cnt))
+//			  {
+//				  time_array[pos_cnt++] = true;
+//				  print("1");
+//				  print(ENDL);
+//			  }
+			  zero_cnt++;
+			  one_cnt = 0;
+		  }
+	  }
+	  /*
 	  if (HAL_GetTick() - time_delay >= 31) // 1000 msec / 32
 	  {
 		  time_delay = HAL_GetTick();
@@ -714,7 +772,7 @@ int main(void)
 		  {
 			  if (zero_cnt > 51)
 			  {
-				  // new minute is here!
+				  print(ENDL);
 			  }
 			  zero_cnt = 0;
 		  } else {
@@ -731,11 +789,11 @@ int main(void)
 //		  }
 //		  print("\r");
 //
-		  if (HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin))
-			  print("|");
-		  else
-			  print(".");
-		  if (!((time_register ^ 0b00000111000000000000000000000000)&0b11111111000000000000000000000000))
+//		  if (HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin))
+//			  print("|");
+//		  else
+//			  print(".");
+		  if (!((time_register ^ 0b00110000000000000000000000000000)&0b11110000000000000000000000000000))
 		  {
 			  print ("\t");
 			  if (count_bits_in_u32(time_register) > 4)
@@ -750,6 +808,7 @@ int main(void)
 			  print(ENDL);
 		  }
 	  }
+	  */
 
 	  while (!fifo_is_empty())
 		  microrl_insert_char(p_mcrl, (int) fifo_pop());
