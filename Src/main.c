@@ -78,8 +78,9 @@ bool tick = false;
 bool show_time = false;
 bool show_date = false;
 bool show_simple_time = false;
-bool led_tack = true;
-bool led_bypass_dcf77 = false;
+bool led_tack = false;
+bool led_bypass_dcf77 = true;
+bool led_display_dcf77 = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -110,7 +111,10 @@ void print (const char * str)
 		return;
 	uint16_t len = 0;
 	while (str[++len] != 0);
-	while (((USBD_CDC_HandleTypeDef*)(hUsbDeviceFS.pClassData))->TxState!=0);
+	uint32_t timeout = HAL_GetTick();
+	while (((USBD_CDC_HandleTypeDef*)(hUsbDeviceFS.pClassData))->TxState!=0)
+		if (HAL_GetTick() - timeout >= 5)
+			break;
 	CDC_Transmit_FS((uint8_t*)str, len);
 
 #if defined (SEGGER_RTT_PRINT)
@@ -282,6 +286,12 @@ int led_tick 		(int argc, const char * const * argv)
 
 int led_dcf77 		(int argc, const char * const * argv)
 {
+	if (argc > 2)
+	{
+		led_tack = false;
+		led_display_dcf77 = true;
+		return 0;
+	}
 	led_tack = false;
 	led_bypass_dcf77 ^= 1;
 	return 0;
@@ -613,11 +623,18 @@ void sigint (void)
 	show_time = false;
 	show_date = false;
 	show_simple_time = false;
+	led_display_dcf77 = false;
 	print (ENDL);
 	print ("^C catched!");
 	int i = 0;
 	while (ENTER[i])
 		microrl_insert_char(p_mcrl, ENTER[i++]);
+}
+
+uint32_t count_bits_in_u32(uint32_t i){
+	i -= ((i >> 1) & 0x55555555);
+	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+	return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 }
 
 
@@ -681,12 +698,65 @@ int main(void)
 	  HAL_Delay(100);
 	  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
   }
+  uint32_t time_register = 0;
+  uint32_t time_delay = HAL_GetTick();
+  uint32_t zero_cnt		= 0;
   while (1)
   {
+	  if (HAL_GetTick() - time_delay >= 31) // 1000 msec / 32
+	  {
+		  time_delay = HAL_GetTick();
+		  bool time_bit = HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin);
+		  time_register <<= 1;
+		  time_register |= time_bit;
+
+		  if (time_bit)
+		  {
+			  if (zero_cnt > 51)
+			  {
+				  // new minute is here!
+			  }
+			  zero_cnt = 0;
+		  } else {
+			  zero_cnt++;
+		  }
+
+//		  print ("\r  ");
+//		  for (int i = 31; i >= 0; i--)
+//		  {
+//			  if (time_register & (1<<i))
+//				  print("|");
+//			  else
+//				  print(".");
+//		  }
+//		  print("\r");
+//
+		  if (HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin))
+			  print("|");
+		  else
+			  print(".");
+		  if (!((time_register ^ 0b00000111000000000000000000000000)&0b11111111000000000000000000000000))
+		  {
+			  print ("\t");
+			  if (count_bits_in_u32(time_register) > 4)
+				  print ("1");
+			  else
+				  print ("0");
+			  print ("\t");
+			  char str[2];
+			  str[0] = (count_bits_in_u32(time_register) + '0');
+			  str[1] = '\0';
+			  print (str);
+			  print(ENDL);
+		  }
+	  }
+
 	  while (!fifo_is_empty())
 		  microrl_insert_char(p_mcrl, (int) fifo_pop());
+
 	  if (led_bypass_dcf77)
 		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1^HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin));
+
 	  if (tick)
 	  {
 		  if (show_time)
@@ -714,17 +784,16 @@ int main(void)
 				  print("\r");
 			  }
 		  }
+
 		  if (led_tack)
 		  {
 			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 			  HAL_Delay(100);
 			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  }
+
 		  tick = false;
 	  }
-//	  HAL_Delay(1000);
-//	  print("This is test");
-//	  print(ENDL);
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
