@@ -84,6 +84,7 @@ bool led_bypass_dcf77 = true;
 bool led_display_dcf77 = false;
 bool secf_flag = false;
 bool first_minute = true;
+bool first_received = true;
 bool time_synced = false;
 /* USER CODE END PV */
 
@@ -689,7 +690,7 @@ void print_x8 (uint8_t dig)
 }
 int calculate_time(bool * time_array)
 {
-	if (time_array[0] || time_array[15] || !time_array[20])
+	if (!first_minute && (time_array[0] || time_array[15] || !time_array[20]))
 		return 1;
 	bool checksum;
 	RTC_TimeTypeDef sTime;
@@ -803,10 +804,32 @@ void process_time (void)
 					  print("; ");
 					  if (bad_minute)
 						  print_color(" BAD; ", C_RED);
+					  if (first_minute && !bad_minute && ((58-21) <= pos_cnt) && (pos_cnt < 58))
+					  {
+						  print(ENDL);
+						  print_color(">", C_RED);
+						  for (int i = 0; i < 59; i++)
+							  print(time_array[i]?"1":"0");
+						  print_color("<", C_RED);
+						  print(ENDL);
+
+						  for (int i = 0; i <= pos_cnt; i++)
+						  {
+							  time_array[58 - i] = time_array[pos_cnt - i];
+						  }
+						  pos_cnt = 58;
+						  print_color(">", C_GREEN);
+						  for (int i = 0; i < 59; i++)
+							  print(time_array[i]?"1":"0");
+						  print_color("<", C_GREEN);
+						  print(ENDL);
+					  }
 					  if ((!bad_minute) && (pos_cnt >= 58))
 						  calculate_time(time_array);
 					  bad_minute = false;
+					  first_minute = false;
 					  pos_cnt = 0;
+
 					  print(ENDL);
 					  char time[9];
 					  char date[11];
@@ -825,9 +848,11 @@ void process_time (void)
 						  bad_minute = true;
 					  else
 						  pos_cnt++;
+					  first_received = false;
 				  } else if (zero_cnt)
 				  {
-					  bad_minute = true;
+					  bad_minute = !first_received;
+					  first_received = false;
 				  }
 				  one_cnt++;
 				  zero_cnt = 0;
@@ -850,7 +875,8 @@ void process_time (void)
 					  print(COLOR_RED);
 					  print_u32(one_cnt);
 					  print_color("-", C_RED);
-					  bad_minute = true;
+					  bad_minute = !first_received;
+					  first_received = false;
 				  }
 				  zero_cnt++;
 				  one_cnt = 0;
