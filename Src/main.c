@@ -112,12 +112,12 @@ void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc)
 
 bool poll_second_update (void)
 {
-		  if (rtc_sec_irq_armed && (HAL_GetTick() - tick_delay > 1))
-		  {
-			  rtc_sec_irq_armed = false;
-			  return true;
-		  }
-		  return false;
+	if (rtc_sec_irq_armed && (HAL_GetTick() - tick_delay > 1))
+	{
+		rtc_sec_irq_armed = false;
+		return true;
+	}
+	return false;
 }
 
 void process_cdc_input_data(uint8_t* Buf, uint32_t *Len)
@@ -687,8 +687,11 @@ void print_x8 (uint8_t dig)
 		str[2] = str[2] - '0' - 10 + 'A';
 	print(str);
 }
-void calculate_time(bool * time_array)
+int calculate_time(bool * time_array)
 {
+	if (time_array[0] || time_array[15] || !time_array[20])
+		return 1;
+	bool checksum;
 	RTC_TimeTypeDef sTime;
 	sTime.Hours = 0;
 	sTime.Minutes = 0;
@@ -700,8 +703,13 @@ void calculate_time(bool * time_array)
 	print(" H: ");
 	print_x8(sTime.Hours);
 	print("; ");
+	checksum = 0;
+	for (int i = 0; i < 7; i++)
+		checksum ^= time_array[29 + i];
+	if (checksum)
+		return 1;
 	if ((sTime.Hours > 0x23) || ((sTime.Hours & 0x0F) > 0x9))
-		return;
+		return 1;
 
 	for (int i = 0; i < 7; i++)
 	{
@@ -711,8 +719,13 @@ void calculate_time(bool * time_array)
 	print_x8(sTime.Minutes);
 	print("; ");
 
+	checksum = 0;
+	for (int i = 0; i < 8; i++)
+		checksum ^= time_array[21 + i];
+	if (checksum)
+		return 1;
 	if ((sTime.Minutes > 0x59) || ((sTime.Minutes & 0x0F) > 0x9))
-		return;
+		return 1;
 
 	RTC_DateTypeDef sDate;
 	sDate.Year = 0;
@@ -742,22 +755,23 @@ void calculate_time(bool * time_array)
 	print(" d: ");
 	print_x8(sDate.Date);
 	print("; ");
+	checksum = 0;
+	for (int i = 0; i < 23; i++)
+		checksum ^= time_array[36 + i];
+	if (checksum)
+		return 1;
 
 	if ((sDate.Year  > 0x99) || ((sDate.Year  & 0x0F) > 0x09))
-		return;
+		return 1;
 	if ((sDate.Month > 0x12) || ((sDate.Month & 0x0F) > 0x09))
-		return;
+		return 1;
 	if ((sDate.Date  > 0x31) || ((sDate.Date  & 0x0F) > 0x09))
-		return;
+		return 1;
 
-//	bool check_minutes;
-//	for (int i = 0; i < 7; i++)
-//	{
-//
-//	}
 	HAL_RTC_SetTime (&hrtc,  &sTime, RTC_FORMAT_BCD);
 	HAL_RTC_SetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
 	print_color(" sync", C_YELLOW);
+	return 0;
 }
 
 void process_time (void)
