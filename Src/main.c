@@ -74,13 +74,17 @@ microrl_t mcrl;
 microrl_t * p_mcrl = &mcrl;
 
 bool CDC_is_ready = false;
-bool tick = false;
-bool show_time = false;
+bool rtc_sec_irq_armed = false;
+uint32_t tick_delay;
+bool show_time = true;
 bool show_date = false;
-bool show_simple_time = false;
+bool show_simple_time = true;
 bool led_tack = false;
 bool led_bypass_dcf77 = true;
 bool led_display_dcf77 = false;
+bool secf_flag = false;
+bool first_minute = true;
+bool time_synced = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -97,8 +101,25 @@ void print (const char * str);
 /* USER CODE BEGIN 0 */
 void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc)
 {
-	tick = true;
+	rtc_sec_irq_armed = true;
+	tick_delay = HAL_GetTick();
 }
+
+/*
+ * seconds interrupt comes for the second change! RM0008 page 486 fig 180
+ * so, we make 1 ms delay to be sure the new second is here
+ */
+
+bool poll_second_update (void)
+{
+		  if (rtc_sec_irq_armed && (HAL_GetTick() - tick_delay > 1))
+		  {
+			  rtc_sec_irq_armed = false;
+			  return true;
+		  }
+		  return false;
+}
+
 void process_cdc_input_data(uint8_t* Buf, uint32_t *Len)
 {
 	for (uint32_t i = 0; i < (*Len); i++)
@@ -237,8 +258,11 @@ void time_to_string(char * str)
 
 int print_time (int argc, const char * const * argv)
 {
-	show_time = false;
-	show_date = false;
+	if (argc != 11) // TODO dirty hack
+	{
+		show_time = false;
+		show_date = false;
+	}
 	char str[9];
 	time_to_string (str);
 	print(COLOR_LIGHT_BLUE);
@@ -648,6 +672,182 @@ void print_u32 (uint32_t dig)
 	str[5] = '\0';
 	print (str);
 }
+void print_x8 (uint8_t dig)
+{
+	char str [5];
+	str[0] = '0';
+	str[1] = 'x';
+	str[4] = '\0';
+	str[3] = (dig & 0x0F) + '0';
+	if (str[3] > '9')
+		str[3] = str[3] - '0' - 10 + 'A';
+	dig >>= 4;
+	str[2] = (dig & 0x0F) + '0';
+	if (str[2] > '9')
+		str[2] = str[2] - '0' - 10 + 'A';
+	print(str);
+}
+void calculate_time(bool * time_array)
+{
+	RTC_TimeTypeDef sTime;
+	sTime.Hours = 0;
+	sTime.Minutes = 0;
+	sTime.Seconds = 0;
+	for (int i = 0; i < 6; i++)
+	{
+		sTime.Hours   |= (time_array[29 + i] << i);
+	}
+	print(" H: ");
+	print_x8(sTime.Hours);
+	print("; ");
+	if ((sTime.Hours > 0x23) || ((sTime.Hours & 0x0F) > 0x9))
+		return;
+
+	for (int i = 0; i < 7; i++)
+	{
+		sTime.Minutes   |= (time_array[21 + i] << i);
+	}
+	print(" m: ");
+	print_x8(sTime.Minutes);
+	print("; ");
+
+	if ((sTime.Minutes > 0x59) || ((sTime.Minutes & 0x0F) > 0x9))
+		return;
+
+	RTC_DateTypeDef sDate;
+	sDate.Year = 0;
+	sDate.Month = 0;
+	sDate.Date = 0;
+
+	for (int i = 0; i < 8; i++)
+	{
+		sDate.Year   |= (time_array[50 + i] << i);
+	}
+	print(" Y: ");
+	print_x8(sDate.Year);
+	print("; ");
+
+	for (int i = 0; i < 5; i++)
+	{
+		sDate.Month   |= (time_array[45 + i] << i);
+	}
+	print(" M: ");
+	print_x8(sDate.Month);
+	print("; ");
+
+	for (int i = 0; i < 6; i++)
+	{
+		sDate.Date   |= (time_array[36 + i] << i);
+	}
+	print(" d: ");
+	print_x8(sDate.Date);
+	print("; ");
+
+	if ((sDate.Year  > 0x99) || ((sDate.Year  & 0x0F) > 0x09))
+		return;
+	if ((sDate.Month > 0x12) || ((sDate.Month & 0x0F) > 0x09))
+		return;
+	if ((sDate.Date  > 0x31) || ((sDate.Date  & 0x0F) > 0x09))
+		return;
+
+//	bool check_minutes;
+//	for (int i = 0; i < 7; i++)
+//	{
+//
+//	}
+	HAL_RTC_SetTime (&hrtc,  &sTime, RTC_FORMAT_BCD);
+	HAL_RTC_SetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
+	print_color(" sync", C_YELLOW);
+}
+
+void process_time (void)
+{
+	static uint32_t time_delay = 0;
+	static uint32_t zero_cnt = 0, one_cnt = 0;
+	static uint32_t pos_cnt = 0;
+	static bool time_array[60];
+	static bool bad_minute = false;
+	static bool first_minute = true;
+	bool time_bit = HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin);
+	if ((HAL_GetTick() - time_delay >= 10) || (time_bit && (zero_cnt > 170)))
+		  {
+			  time_delay = HAL_GetTick();
+			  if (time_bit)
+			  {
+//				  if (zero_cnt)
+//				  {
+//					  print(" ");
+//					  print_time(0,0);
+////					  print ("    0: ");
+////					  print_u32(zero_cnt);
+////					  print (ENDL);
+//				  }
+				  if ((170 < zero_cnt) && (zero_cnt < 200))
+				  {
+					  print(" POS: ");
+					  print_u32(pos_cnt);
+					  print("; ");
+					  if (bad_minute)
+						  print_color(" BAD; ", C_RED);
+					  if ((!bad_minute) && (pos_cnt >= 58))
+						  calculate_time(time_array);
+					  bad_minute = false;
+					  pos_cnt = 0;
+					  print(ENDL);
+					  char time[9];
+					  char date[11];
+					  print(COLOR_BROWN);
+					  time_to_string (time);
+					  date_to_string(date);
+					  print(date);
+					  print(" ");
+					  print(time);
+					  print(COLOR_NC);
+					  print(ENDL);
+					  print(ENDL);
+				  } else if ((70 <= zero_cnt) && (zero_cnt <= 94) && (!bad_minute))
+				  {
+					  if (pos_cnt >= 59)
+						  bad_minute = true;
+					  else
+						  pos_cnt++;
+				  } else if (zero_cnt)
+				  {
+					  bad_minute = true;
+				  }
+				  one_cnt++;
+				  zero_cnt = 0;
+			  } else {
+				  if (one_cnt)
+				  {
+					  print_time(11, 0);
+					  print(" ");
+				  }
+				  if ((7 <= one_cnt) && (one_cnt <= 14))
+				  {
+					  time_array[pos_cnt] = false;
+//					  print("0");
+				  } else if ((16 <= one_cnt) && (one_cnt <= 24))
+				  {
+					  time_array[pos_cnt] = true;
+//					  print("1");
+				  } else if (one_cnt) {
+					  print_color("-", C_RED);
+					  print(COLOR_RED);
+					  print_u32(one_cnt);
+					  print_color("-", C_RED);
+					  bad_minute = true;
+				  }
+				  zero_cnt++;
+				  one_cnt = 0;
+			  }
+//
+//			  if (time_bit)
+//				  print("|");
+//			  else
+//				  print(".");
+		  }
+}
 
 
 
@@ -710,105 +910,10 @@ int main(void)
 	  HAL_Delay(100);
 	  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
   }
-  uint32_t time_register = 0;
-  uint32_t time_delay = HAL_GetTick();
-  uint32_t zero_cnt = 0, one_cnt = 0;
-  uint32_t pos_cnt = 0;
-  bool time_array[60];
+
   while (1)
   {
-	  if (HAL_GetTick() - time_delay >= 10)
-	  {
-		  time_delay = HAL_GetTick();
-		  bool time_bit = HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin);
-		  if (time_bit)
-		  {
-			  if (zero_cnt)
-			  {
-				  print ("    0: ");
-				  print_u32(zero_cnt);
-				  print (ENDL);
-			  }
-			  if (zero_cnt > 170)
-			  {
-				  pos_cnt = 0;
-				  print("minute start");
-				  print(ENDL);
-			  }
-			  one_cnt++;
-			  zero_cnt = 0;
-		  } else {
-			  if (one_cnt)
-			  {
-				  print_u32(pos_cnt++);
-				  print(" 1: ");
-				  print_u32(one_cnt);
-			  }
-
-//			  if ((7 <= one_cnt) && (one_cnt <= 12))
-//			  {
-//				  time_array[pos_cnt++] = false;
-//				  print("0");
-//				  print(ENDL);
-//			  } else if ((16 <= one_cnt) && (24 <= one_cnt))
-//			  {
-//				  time_array[pos_cnt++] = true;
-//				  print("1");
-//				  print(ENDL);
-//			  }
-			  zero_cnt++;
-			  one_cnt = 0;
-		  }
-	  }
-	  /*
-	  if (HAL_GetTick() - time_delay >= 31) // 1000 msec / 32
-	  {
-		  time_delay = HAL_GetTick();
-		  bool time_bit = HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin);
-		  time_register <<= 1;
-		  time_register |= time_bit;
-
-		  if (time_bit)
-		  {
-			  if (zero_cnt > 51)
-			  {
-				  print(ENDL);
-			  }
-			  zero_cnt = 0;
-		  } else {
-			  zero_cnt++;
-		  }
-
-//		  print ("\r  ");
-//		  for (int i = 31; i >= 0; i--)
-//		  {
-//			  if (time_register & (1<<i))
-//				  print("|");
-//			  else
-//				  print(".");
-//		  }
-//		  print("\r");
-//
-//		  if (HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin))
-//			  print("|");
-//		  else
-//			  print(".");
-		  if (!((time_register ^ 0b00110000000000000000000000000000)&0b11110000000000000000000000000000))
-		  {
-			  print ("\t");
-			  if (count_bits_in_u32(time_register) > 4)
-				  print ("1");
-			  else
-				  print ("0");
-			  print ("\t");
-			  char str[2];
-			  str[0] = (count_bits_in_u32(time_register) + '0');
-			  str[1] = '\0';
-			  print (str);
-			  print(ENDL);
-		  }
-	  }
-	  */
+	  process_time();
 
 	  while (!fifo_is_empty())
 		  microrl_insert_char(p_mcrl, (int) fifo_pop());
@@ -816,7 +921,7 @@ int main(void)
 	  if (led_bypass_dcf77)
 		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1^HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin));
 
-	  if (tick)
+	  if (poll_second_update ())
 	  {
 		  if (show_time)
 		  {
@@ -850,8 +955,6 @@ int main(void)
 			  HAL_Delay(100);
 			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  }
-
-		  tick = false;
 	  }
   /* USER CODE END WHILE */
 
@@ -949,8 +1052,8 @@ static void MX_RTC_Init(void)
 
     /**Initialize RTC and set the Time and Date 
     */
-  sTime.Hours = 0x18;
-  sTime.Minutes = 0x3;
+  sTime.Hours = 0x0;
+  sTime.Minutes = 0x0;
   sTime.Seconds = 0x0;
 
   if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
@@ -959,8 +1062,8 @@ static void MX_RTC_Init(void)
   }
 
   DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
-  DateToUpdate.Month = RTC_MONTH_OCTOBER;
-  DateToUpdate.Date = 0x29;
+  DateToUpdate.Month = RTC_MONTH_JANUARY;
+  DateToUpdate.Date = 0x1;
   DateToUpdate.Year = 0x18;
 
   if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
