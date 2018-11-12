@@ -73,12 +73,17 @@ RTC_HandleTypeDef hrtc;
 microrl_t mcrl;
 microrl_t * p_mcrl = &mcrl;
 
+RTC_TimeTypeDef time_to_first_sync, time_of_first_sync, time_of_last_sync;
+RTC_DateTypeDef date_to_first_sync, date_of_first_sync, date_of_last_sync;
+
+uint32_t good_syncs = 0, bad_syncs = 0;
+
 bool CDC_is_ready = false;
 bool rtc_sec_irq_armed = false;
 uint32_t tick_delay;
-bool show_time = true;
+bool show_time = false;
 bool show_date = false;
-bool show_simple_time = true;
+bool show_simple_time = false;
 bool led_tack = false;
 bool led_bypass_dcf77 = true;
 bool led_display_dcf77 = false;
@@ -236,6 +241,21 @@ int clear_screen(int argc, const char * const * argv)
 	print ("\033[2J");    // ESC seq for clear entire screen
 	print ("\033[H");     // ESC seq for move cursor at left-top corner
 	return 0;
+}
+
+void print_time_string(RTC_TimeTypeDef * time)
+{
+	char str[9];
+	str[0] = (((time->Hours)&0xF0)>>4) + '0';
+	str[1] = (((time->Hours)&0x0F)>>0) + '0';
+	str[2] = ':';
+	str[3] = (((time->Minutes)&0xF0)>>4) + '0';
+	str[4] = (((time->Minutes)&0x0F)>>0) + '0';
+	str[5] = ':';
+	str[6] = (((time->Seconds)&0xF0)>>4) + '0';
+	str[7] = (((time->Seconds)&0x0F)>>0) + '0';
+	str[8] = '\0';
+	print(str);
 }
 
 /*
@@ -408,6 +428,23 @@ int date_set 		(int argc, const char * const * argv)
 	return 0;
 }
 
+void print_date_string(RTC_DateTypeDef * pDate)
+{
+	char str[11];
+	str[0] = '2';
+	str[1] = '0';
+	str[2] = ((pDate->Year & 0xF0) >> 4) + '0';
+	str[3] = (pDate->Year & 0x0F) + '0';
+	str[4] = '.';
+	str[5] = ((pDate->Month & 0xF0) >> 4) + '0';
+	str[6] = (pDate->Month & 0x0F) + '0';
+	str[7] = '.';
+	str[8] = ((pDate->Date & 0xF0) >> 4) + '0';
+	str[9] = (pDate->Date & 0x0F) + '0';
+	str[10] = '\0';
+	print(str);
+}
+
 /*
  * @param pointer char str[11]
  */
@@ -444,12 +481,12 @@ void day_to_string (char * str)
 {
 	RTC_DateTypeDef sDate;
 	HAL_RTC_GetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
-
+	// Day Printing
 }
 
 int print_date 		(int argc, const char * const * argv)
 {
-	char str[10];
+	char str[11];
 	date_to_string(str);
 	print(COLOR_LIGHT_BLUE);
 	print(str);
@@ -701,9 +738,7 @@ int calculate_time(bool * time_array)
 	{
 		sTime.Hours   |= (time_array[29 + i] << i);
 	}
-	print(" H: ");
-	print_x8(sTime.Hours);
-	print("; ");
+
 	checksum = 0;
 	for (int i = 0; i < 7; i++)
 		checksum ^= time_array[29 + i];
@@ -716,9 +751,6 @@ int calculate_time(bool * time_array)
 	{
 		sTime.Minutes   |= (time_array[21 + i] << i);
 	}
-	print(" m: ");
-	print_x8(sTime.Minutes);
-	print("; ");
 
 	checksum = 0;
 	for (int i = 0; i < 8; i++)
@@ -737,25 +769,17 @@ int calculate_time(bool * time_array)
 	{
 		sDate.Year   |= (time_array[50 + i] << i);
 	}
-	print(" Y: ");
-	print_x8(sDate.Year);
-	print("; ");
 
 	for (int i = 0; i < 5; i++)
 	{
 		sDate.Month   |= (time_array[45 + i] << i);
 	}
-	print(" M: ");
-	print_x8(sDate.Month);
-	print("; ");
 
 	for (int i = 0; i < 6; i++)
 	{
 		sDate.Date   |= (time_array[36 + i] << i);
 	}
-	print(" d: ");
-	print_x8(sDate.Date);
-	print("; ");
+
 	checksum = 0;
 	for (int i = 0; i < 23; i++)
 		checksum ^= time_array[36 + i];
@@ -769,9 +793,22 @@ int calculate_time(bool * time_array)
 	if ((sDate.Date  > 0x31) || ((sDate.Date  & 0x0F) > 0x09))
 		return 1;
 
-	HAL_RTC_SetTime (&hrtc,  &sTime, RTC_FORMAT_BCD);
+	if (!time_synced)
+	{
+		HAL_RTC_GetTime(&hrtc, &time_to_first_sync, RTC_FORMAT_BCD);
+		HAL_RTC_GetDate(&hrtc, &date_to_first_sync, RTC_FORMAT_BCD);
+	}
+	HAL_RTC_SetTime (&hrtc, &sTime, RTC_FORMAT_BCD);
 	HAL_RTC_SetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
 	print_color(" sync", C_YELLOW);
+	if (!time_synced)
+	{
+		HAL_RTC_GetTime(&hrtc, &time_of_first_sync, RTC_FORMAT_BCD);
+		HAL_RTC_GetDate(&hrtc, &date_of_first_sync, RTC_FORMAT_BCD);
+	}
+	HAL_RTC_GetTime(&hrtc, &time_of_last_sync, RTC_FORMAT_BCD);
+	HAL_RTC_GetDate(&hrtc, &date_of_last_sync, RTC_FORMAT_BCD);
+	time_synced = true;
 	return 0;
 }
 
@@ -789,14 +826,6 @@ void process_time (void)
 			  time_delay = HAL_GetTick();
 			  if (time_bit)
 			  {
-//				  if (zero_cnt)
-//				  {
-//					  print(" ");
-//					  print_time(0,0);
-////					  print ("    0: ");
-////					  print_u32(zero_cnt);
-////					  print (ENDL);
-//				  }
 				  if ((170 < zero_cnt) && (zero_cnt < 200))
 				  {
 					  print(" POS: ");
@@ -825,7 +854,12 @@ void process_time (void)
 						  print(ENDL);
 					  }
 					  if ((!bad_minute) && (pos_cnt >= 58))
-						  calculate_time(time_array);
+					  {
+						 if (calculate_time(time_array))
+							 bad_syncs++;
+						 else
+							 good_syncs++;
+					  }
 					  bad_minute = false;
 					  first_minute = false;
 					  pos_cnt = 0;
@@ -857,11 +891,11 @@ void process_time (void)
 				  one_cnt++;
 				  zero_cnt = 0;
 			  } else {
-				  if (one_cnt)
-				  {
-					  print_time(11, 0);
-					  print(" ");
-				  }
+//				  if (one_cnt)
+//				  {
+//					  print_time(11, 0);
+//					  print(" ");
+//				  }
 				  if ((7 <= one_cnt) && (one_cnt <= 14))
 				  {
 					  time_array[pos_cnt] = false;
@@ -871,7 +905,7 @@ void process_time (void)
 					  time_array[pos_cnt] = true;
 //					  print("1");
 				  } else if (one_cnt) {
-					  print_color("-", C_RED);
+					  print_color(" -", C_RED);
 					  print(COLOR_RED);
 					  print_u32(one_cnt);
 					  print_color("-", C_RED);
@@ -959,10 +993,48 @@ int main(void)
 		  microrl_insert_char(p_mcrl, (int) fifo_pop());
 
 	  if (led_bypass_dcf77)
-		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, 1^HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin));
+		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, (!time_synced)^HAL_GPIO_ReadPin(DCF77_GPIO_Port, DCF77_Pin));
 
 	  if (poll_second_update ())
 	  {
+
+		  RTC_TimeTypeDef time;
+		  RTC_DateTypeDef date;
+		  HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BCD);
+		  HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BCD);
+		  print(ENDL);
+		  if (time_synced)
+			  print(COLOR_YELLOW);
+		  else
+			  print(COLOR_RED);
+		  print_date_string(&date);
+		  print (" ");
+		  print_time_string(&time);
+		  print(COLOR_NC);
+		  if (time_synced)
+		  {
+			  print ("; to first: ");
+			  print (COLOR_LIGHT_BLUE);
+			  //		  print_date_string(&date_to_first_sync);
+			  //		  print (" ");
+			  print_time_string(&time_to_first_sync);
+			  print (COLOR_NC);
+			  print ("; first sync: ");
+			  print (COLOR_BLUE);
+			  print_time_string(&time_of_first_sync);
+			  print (COLOR_NC);
+			  print("; last sync: ");
+			  print (COLOR_GREEN);
+			  print_time_string(&time_of_last_sync);
+			  print (COLOR_NC);
+			  print (" ");
+			  print (COLOR_GREEN);
+			  print_u32(good_syncs);
+			  print_color("/", C_NC);
+			  print (COLOR_RED);
+			  print_u32(bad_syncs);
+			  print (COLOR_NC);
+		  }
 		  if (show_time)
 		  {
 			  if (!show_simple_time)
@@ -1104,7 +1176,7 @@ static void MX_RTC_Init(void)
   DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
   DateToUpdate.Month = RTC_MONTH_JANUARY;
   DateToUpdate.Date = 0x1;
-  DateToUpdate.Year = 0x18;
+  DateToUpdate.Year = 0x0;
 
   if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
   {
