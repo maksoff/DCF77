@@ -76,7 +76,7 @@ microrl_t * p_mcrl = &mcrl;
 RTC_TimeTypeDef time_to_first_sync, time_of_first_sync, time_of_last_sync;
 RTC_DateTypeDef date_to_first_sync, date_of_first_sync, date_of_last_sync;
 
-uint32_t good_syncs = 0, bad_syncs = 0;
+uint32_t good_syncs = 0, bad_syncs = 0, bad_minutes = 0;
 
 bool CDC_is_ready = false;
 bool rtc_sec_irq_armed = false;
@@ -856,10 +856,19 @@ void process_time (void)
 					  if ((!bad_minute) && (pos_cnt >= 58))
 					  {
 						 if (calculate_time(time_array))
+						 {
 							 bad_syncs++;
+							 print(ENDL);
+							 print_color(">", C_RED);
+							 for (int i = 0; i < 59; i++)
+								 print(time_array[i]?"1":"0");
+							 print_color("<", C_RED);
+							 print(ENDL);
+						 }
 						 else
 							 good_syncs++;
-					  }
+					  } else
+						  bad_minutes++;
 					  bad_minute = false;
 					  first_minute = false;
 					  pos_cnt = 0;
@@ -1027,12 +1036,15 @@ int main(void)
 			  print (COLOR_GREEN);
 			  print_time_string(&time_of_last_sync);
 			  print (COLOR_NC);
-			  print (" ");
+			  print ("; good/wrong/bad: ");
 			  print (COLOR_GREEN);
 			  print_u32(good_syncs);
 			  print_color("/", C_NC);
-			  print (COLOR_RED);
+			  print (COLOR_LIGHT_RED);
 			  print_u32(bad_syncs);
+			  print_color("/", C_NC);
+			  print (COLOR_RED);
+			  print_u32(bad_minutes);
 			  print (COLOR_NC);
 		  }
 		  if (show_time)
