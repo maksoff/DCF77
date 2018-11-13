@@ -91,6 +91,8 @@ bool secf_flag = false;
 bool first_minute = true;
 bool first_received = true;
 bool time_synced = false;
+
+bool color_out = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -134,6 +136,8 @@ void process_cdc_input_data(uint8_t* Buf, uint32_t *Len)
 
 void print (const char * str)
 {
+	if ((!color_out) && (str[0] == '\e')) // don't print escape characters
+		return;
 	if (!CDC_is_ready)
 		return;
 	uint16_t len = 0;
@@ -511,6 +515,12 @@ int echo_off 		(int argc, const char * const * argv)
 	return 0;
 }
 
+
+int echo_enter 		(int argc, const char * const * argv)
+{
+	return 0;
+}
+
 int echo_show 		(int argc, const char * const * argv)
 {
 	return 0;
@@ -518,21 +528,31 @@ int echo_show 		(int argc, const char * const * argv)
 
 int color_toggle 	(int argc, const char * const * argv)
 {
+	color_out ^= 1;
 	return 0;
 }
 
 int color_on 		(int argc, const char * const * argv)
 {
+	color_out = 1;
+	print_color ("Color output is ON", C_GREEN);
+	print(ENDL);
 	return 0;
 }
 
 int color_off 		(int argc, const char * const * argv)
 {
+	color_out = 0;
+	print ("Color output is OFF");
 	return 0;
 }
 
 int color_show 		(int argc, const char * const * argv)
 {
+	if (color_out)
+		print_color("Color output is ON", C_GREEN);
+	else
+		print ("Color output is OFF");
 	return 0;
 }
 
@@ -800,7 +820,9 @@ int calculate_time(bool * time_array)
 	}
 	HAL_RTC_SetTime (&hrtc, &sTime, RTC_FORMAT_BCD);
 	HAL_RTC_SetDate (&hrtc, &sDate, RTC_FORMAT_BCD);
-	print_color(" sync", C_YELLOW);
+	if (HAL_GetTick() - tick_delay > 500) // if time updated before the second tick, make a new tick!
+		HAL_RTCEx_RTCEventCallback(&hrtc);
+	print_color(" sync ", C_YELLOW);
 	if (!time_synced)
 	{
 		HAL_RTC_GetTime(&hrtc, &time_of_first_sync, RTC_FORMAT_BCD);
@@ -873,7 +895,7 @@ void process_time (void)
 					  first_minute = false;
 					  pos_cnt = 0;
 
-					  print(ENDL);
+
 					  char time[9];
 					  char date[11];
 					  print(COLOR_BROWN);
@@ -883,8 +905,7 @@ void process_time (void)
 					  print(" ");
 					  print(time);
 					  print(COLOR_NC);
-					  print(ENDL);
-					  print(ENDL);
+
 				  } else if ((70 <= zero_cnt) && (zero_cnt <= 94) && (!bad_minute))
 				  {
 					  if (pos_cnt >= 59)

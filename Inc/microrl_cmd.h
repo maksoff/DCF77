@@ -29,6 +29,7 @@ int echo_toggle 	(int argc, const char * const * argv);
 int echo_on 		(int argc, const char * const * argv);
 int echo_off 		(int argc, const char * const * argv);
 int echo_show 		(int argc, const char * const * argv);
+int echo_enter 		(int argc, const char * const * argv);
 int color_toggle 	(int argc, const char * const * argv);
 int color_on 		(int argc, const char * const * argv);
 int color_off 		(int argc, const char * const * argv);
@@ -96,10 +97,11 @@ const microrl_action_t microrl_actions [] =
 //		{   1,		"on",		"turn on",			echo_on},
 //		{   1,		"off",		"turn off",			echo_off},
 //		{   1,		"show", 	"show echo",		echo_show},
-//		{ 0,		"color",	"toggle color",		color_toggle},
-//		{   1,		"on",		"turn on",			color_on},
-//		{   1,		"off",		"turn off",			color_off},
-//		{   1,		"show", 	"show color",		color_show},
+//		{   1,      "once",     "turn off, enable on Enter", echo_enter},
+		{ 0,		"color",	"toggle color",		color_toggle},
+		{   1,		"on",		"turn on",			color_on},
+		{   1,		"off",		"turn off",			color_off},
+		{   1,		"show", 	"show color",		color_show},
 };
 
 #define microrl_actions_length (sizeof(microrl_actions)/sizeof(microrl_action_t))
