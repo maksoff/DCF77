@@ -34,6 +34,7 @@ int color_toggle 	(int argc, const char * const * argv);
 int color_on 		(int argc, const char * const * argv);
 int color_off 		(int argc, const char * const * argv);
 int color_show 		(int argc, const char * const * argv);
+int tack_toggle		(int argc, const char * const * argv);
 
 #define EMPTY_CMD_HELP "[]"
 
@@ -102,6 +103,7 @@ const microrl_action_t microrl_actions [] =
 		{   1,		"on",		"turn on",			color_on},
 		{   1,		"off",		"turn off",			color_off},
 		{   1,		"show", 	"show color",		color_show},
+		{ 0,		"tack",		"toggle seconds update",	tack_toggle},
 };
 
 #define microrl_actions_length (sizeof(microrl_actions)/sizeof(microrl_action_t))

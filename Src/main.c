@@ -93,6 +93,7 @@ bool first_received = true;
 bool time_synced = false;
 
 bool color_out = false;
+bool tack_out = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -555,6 +556,14 @@ int color_show 		(int argc, const char * const * argv)
 		print ("Color output is OFF");
 	return 0;
 }
+
+int tack_toggle		(int argc, const char * const * argv)
+{
+	tack_out ^= 1;
+	return 0;
+}
+
+
 
 int execute (int argc, const char * const * argv)
 {
@@ -1033,59 +1042,62 @@ int main(void)
 		  RTC_DateTypeDef date;
 		  HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BCD);
 		  HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BCD);
-		  if (time.Seconds == 0)
+		  if (tack_out)
 		  {
-			  print(ENDL);
-			  if (time_synced)
-				  print(COLOR_YELLOW);
-			  else
-				  print(COLOR_RED);
-			  print_date_string(&date);
-			  print (" ");
-			  print_time_string(&time);
-			  print(COLOR_NC);
-			  if (time_synced)
+			  if (time.Seconds == 0)
 			  {
-				  print ("; to first: ");
-				  print (COLOR_LIGHT_BLUE);
-				  //		  print_date_string(&date_to_first_sync);
-				  //		  print (" ");
-				  print_time_string(&time_to_first_sync);
-				  print (COLOR_NC);
-				  print ("; first sync: ");
-				  print (COLOR_BLUE);
-				  print_time_string(&time_of_first_sync);
-				  print (COLOR_NC);
-				  print("; last sync: ");
-				  print (COLOR_GREEN);
-				  print_time_string(&time_of_last_sync);
-				  print (COLOR_NC);
-				  print ("; good/wrong/bad: ");
-				  print (COLOR_GREEN);
-				  print_u32(good_syncs);
-				  print_color("/", C_NC);
-				  print (COLOR_LIGHT_RED);
-				  print_u32(bad_syncs);
-				  print_color("/", C_NC);
-				  print (COLOR_RED);
-				  print_u32(bad_minutes);
-				  print (COLOR_NC);
-			  }
-		  } else {
-			  if (time.Seconds == 0x01)
 				  print(ENDL);
-			  if ((time.Seconds & 0x0F) == 0)
-			  {
-				  char str[4];
-				  str[0] = ((time.Seconds >> 4) & 0x0F) + '0';
-				  str[1] = ((time.Seconds >> 0) & 0x0F) + '0';
-				  str[2] = ' ';
-				  str[2] = '\0';
-				  print(str);
-			  } else if ((time.Seconds & 0x0F) == 5)
-				  print("|");
-			  else
-				  print (".");
+				  if (time_synced)
+					  print(COLOR_YELLOW);
+				  else
+					  print(COLOR_RED);
+				  print_date_string(&date);
+				  print (" ");
+				  print_time_string(&time);
+				  print(COLOR_NC);
+				  if (time_synced)
+				  {
+					  print ("; to first: ");
+					  print (COLOR_LIGHT_BLUE);
+					  //		  print_date_string(&date_to_first_sync);
+					  //		  print (" ");
+					  print_time_string(&time_to_first_sync);
+					  print (COLOR_NC);
+					  print ("; first sync: ");
+					  print (COLOR_BLUE);
+					  print_time_string(&time_of_first_sync);
+					  print (COLOR_NC);
+					  print("; last sync: ");
+					  print (COLOR_GREEN);
+					  print_time_string(&time_of_last_sync);
+					  print (COLOR_NC);
+					  print ("; good/wrong/bad: ");
+					  print (COLOR_GREEN);
+					  print_u32(good_syncs);
+					  print_color("/", C_NC);
+					  print (COLOR_LIGHT_RED);
+					  print_u32(bad_syncs);
+					  print_color("/", C_NC);
+					  print (COLOR_RED);
+					  print_u32(bad_minutes);
+					  print (COLOR_NC);
+				  }
+			  } else {
+				  if (time.Seconds == 0x01)
+					  print(ENDL);
+				  if ((time.Seconds & 0x0F) == 0)
+				  {
+					  char str[4];
+					  str[0] = ((time.Seconds >> 4) & 0x0F) + '0';
+					  str[1] = ((time.Seconds >> 0) & 0x0F) + '0';
+					  str[2] = ' ';
+					  str[2] = '\0';
+					  print(str);
+				  } else if ((time.Seconds & 0x0F) == 5)
+					  print("|");
+				  else
+					  print (".");
+			  }
 		  }
 		  if (show_time)
 		  {
